@@ -52,9 +52,10 @@ __kernel void convolute(__global unsigned int* output, __global unsigned char* i
 		if (sum <= 0) {
 			sum = 0;		
 		}
-		//if ()
+		
 		output[(ty * get_global_size(0) + tx) + output_shift] = sum;
-		//}
+		sum = 0;
+		
 	}
 
 }
