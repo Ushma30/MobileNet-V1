@@ -42,6 +42,24 @@ void readSquezeNetKernel(int *m, int read_size)
 	}
 	fclose(fp);
 }
+/**
+ * @brief  Get the weights from the numpy array file
+ * @author  Kausutbh
+ * @date June 7, 2019
+ * @param 1. unsigned char* f : variable to put weights into
+ *        2. char filename[] : File name of the weights filename
+ *        3. int size
+ * @return None
+ */
+void getWeights(unsigned char* f, char filename[], int size)
+{
+    FILE *latfile;
+    latfile=fopen(filename,"r");
+    /* 80 is the offset of numpy array file*/
+    fseek(latfile, 80, SEEK_SET);
+    fread(f,sizeof(unsigned char),size,latfile);
+    fclose(latfile);
+}
 //Function to read image files in C
 int decode_image(unsigned char frame[HEIGHT * WIDTH * K],char filename[])
 {
@@ -268,8 +286,8 @@ int main(int argc, char** argv) {
 	}
     printf("\n");
 	//Get filter values
-	readSquezeNetKernel(filter, (FILTER_SIZE_L1*K*K*K));
-
+	//readSquezeNetKernel(filter, (FILTER_SIZE_L1*K*K*K));
+    getWeights(filter,"weights/Conv2d_0",(FILTER_SIZE_L1*K*K*K));
 	//Create buffer for device
 	d_image_r = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT*WIDTH*sizeof(unsigned char), image_r, &err);
 	d_image_g = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT*WIDTH*sizeof(unsigned char), image_g, &err);
