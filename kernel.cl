@@ -7,7 +7,7 @@ __kernel void convolute(__global unsigned int* output, __global unsigned char* i
 	
 	int half_filtersize = (filtersize)/2;
 
-	int sum = 0;
+	unsigned int sum = 0;
 	int xindex=0, yindex=0, findex=0, filter_count=0;
 	int i,j,l;
 	while (filter_count < op_size) {
@@ -22,9 +22,9 @@ __kernel void convolute(__global unsigned int* output, __global unsigned char* i
 					sum +=  0 * filter_k[findex];
 				}
 				else {
-					if (tx == 1 && ty == 1) {
+					/*if (tx == 1 && ty == 1) {
 						printf("Image r: %d\t%d\n",inp_image_r[yindex * get_global_size(0) * stride + xindex],filter_k[findex]);
-					}
+					}*/
  						sum +=  inp_image_r[yindex * get_global_size(0) * stride + xindex] * filter_k[findex];
 				}
 			}
@@ -37,9 +37,9 @@ __kernel void convolute(__global unsigned int* output, __global unsigned char* i
 					sum +=  0 * filter_k[findex];
 				}
 				else {
-					if (tx == 1 && ty == 1) {
+					/*if (tx == 1 && ty == 1) {
 						printf("Img g: %d\t%d\n",inp_image_g[yindex * get_global_size(0) * stride + xindex],filter_k[findex]);
-					}
+					}*/
  					sum +=  inp_image_g[yindex * get_global_size(0) * stride + xindex] * filter_k[findex];
 				}
 			}
@@ -52,9 +52,9 @@ __kernel void convolute(__global unsigned int* output, __global unsigned char* i
 					sum +=  0 * filter_k[findex];
 				}
 				else {
-					if (tx == 1 && ty == 1) {
+					/*if (tx == 1 && ty == 1) {
 						printf("Img b: %d\t%d\n",inp_image_b[yindex * get_global_size(0) * stride + xindex],filter_k[findex]);
-					}
+					}*/
  					sum +=  inp_image_b[yindex * get_global_size(0) * stride + xindex] * filter_k[findex];
 				}
 			}
@@ -62,9 +62,9 @@ __kernel void convolute(__global unsigned int* output, __global unsigned char* i
 		if (sum <= 0) {
 			sum = 0;		
 		}
-		if (tx == 1 && ty == 1) {
+		/*if (tx == 1 && ty == 1) {
 			printf("Sum: %d\t",sum);
-		}
+		}*/
 		output[(ty * get_global_size(0) + tx) + output_shift] = sum;
 		sum = 0;
 		}
@@ -77,7 +77,7 @@ __kernel void depthwise(__global unsigned int* output, __global unsigned int* in
 
 	int half_filtersize = (filtersize)/2;
 
-	int sum = 0;
+	unsigned int sum = 0;
 	int xindex=0, yindex=0, findex=0, filter_count=0;
 	int i,j,l;
 	while (filter_count < op_size) {
@@ -108,7 +108,7 @@ __kernel void pointwise(__global unsigned int* output, __global unsigned int* in
 	int tx = get_global_id(0);
 	int ty = get_global_id(1);
 
-	int sum = 0;
+	unsigned int sum = 0;
 	int findex=0, filter_count=0;
 	int i,j,l;
 	while (filter_count < op_size) {

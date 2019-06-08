@@ -1,3 +1,17 @@
+/****************************************************************************
+ *               University of North Carolina Charlotte                     *
+ *                        MobileNet V1 CNN                                  *
+ *                        				                                    *
+ *                                                                          *
+ *                                                                          *
+ *   Author:    1. Kaustubh Manohar Mhatre                                  *
+ *              2. Ushma Bharucha                                           *
+ *   Date: 08 June 2019														*
+ ****************************************************************************/
+
+/****************************************************************************
+* Includes																	*
+*****************************************************************************/
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -9,68 +23,33 @@
 #include <sys/stat.h>
 #include <CL/cl.h>
 #include <stdbool.h>
+#include "layerdef.h"
+#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 
-#define HEIGHT 224
-#define WIDTH 224
-#define K 3
-#define K_P 1
-#define FILTER_SIZE_L1 32
-#define FILTER_SIZE_L3 64
-#define FILTER_SIZE_L5 128
-#define FILTER_SIZE_L9 256
-#define FILTER_SIZE_L13 512
-#define FILTER_SIZE_L25 1024
-#define FILTER_SIZE_L29 1000
+unsigned char image[HEIGHT_0 * WIDTH_0 * FDIM]; //image with 3 input channels
+unsigned char* filter;
+int err;
+
+cl_device_id device_id;             // compute device id 
+cl_context context;                 // compute context
+cl_command_queue commands;          // compute command queue
+cl_program program;                 // compute program
+cl_kernel standard_conv;            // compute kernel for standard convolution
+cl_kernel depthwise_conv;            // compute kernel for depthwise convolution
+cl_kernel pointwise_conv;            // compute kernel for pointwise convolution
+
+cl_mem d_filter; //filter
+cl_mem d_output; //output image
+cl_event myevent; //profiling event
+cl_ulong start; //time start
+cl_ulong end; //time stop
+cl_float kernelExecTimeNs;
+cl_uint dev_cnt = 0;
+cl_platform_id platform_ids[100];
 
 
-unsigned char image[HEIGHT * WIDTH * K]; //image with 3 input channels
-int decode_image(unsigned char frame[HEIGHT * WIDTH * K], char filename[]);
-void readSquezeNetKernel(unsigned char *m, int read_size) 
-{
+int decode_image(unsigned char frame[HEIGHT_0 * WIDTH_0 * FDIM], char filename[]);
 
-	FILE *fp;	
-	char buff[255];
-	double n;
-	fp = fopen("weight.txt", "r");
-	//int sizeInt = K * K * K * 32 *sizeof(int);
-	int i=0;
-	for(i = 1; i < read_size + 1; i++)
-	{	
-		fscanf(fp, "%s", buff);
-		n = atof(buff);
-		m[i-1] = n;
-	}
-	fclose(fp);
-}
-/**
- * @brief  Get the weights from the numpy array file
- * @author  Kausutbh
- * @date June 7, 2019
- * @param 1. unsigned char* f : variable to put weights into
- *        2. char filename[] : File name of the weights filename
- *        3. int size
- * @return None
- */
-void getWeights(unsigned char* f, char filename[], int size)
-{
-    FILE *latfile;
-    latfile=fopen(filename,"r");
-    /* 80 is the offset of numpy array file*/
-    fseek(latfile, 80, SEEK_SET);
-    fread(f,sizeof(unsigned char),size,latfile);
-    fclose(latfile);
-}
-//Function to read image files in C
-int decode_image(unsigned char frame[HEIGHT * WIDTH * K],char filename[])
-{
-	FILE *pFile;
-	pFile = fopen(filename, "r"); //read mode
-	fseek(pFile, 15, SEEK_SET);
-	fread(frame, sizeof(unsigned char), HEIGHT * WIDTH * K, pFile);
-	fclose(pFile);
-	return 0;
-}
-//Function to load OpenCL kernel - taken from code given by T.A. Arnab 
 long LoadOpenCLKernel(char const* path, char **buf)
 {
 	FILE  *fp;
@@ -124,54 +103,12 @@ long LoadOpenCLKernel(char const* path, char **buf)
 	/* Return the file size */
 	return (long)fsz;
 }
-void display_data(unsigned char* data,int num) {
-	int i,j;
-	for (j = 0 ;j < num ; j++){
-		for(i = 0; i < num; i++){
-			printf("%d\t", data[j*WIDTH+i]);
-		}
-		printf("\n");
-	}
-	printf("\n");
-}
-//This is the main function
-int main(int argc, char** argv) {
 
-	//define memory for inputs and kernel
-	unsigned char* filter = (unsigned char*) malloc(FILTER_SIZE_L25*FILTER_SIZE_L25*K*K*K*sizeof(unsigned char));
-	unsigned char* image_r = (unsigned char*) malloc(HEIGHT * WIDTH * sizeof(unsigned char)); //R channel
-	unsigned char* image_g = (unsigned char*) malloc(HEIGHT * WIDTH * sizeof(unsigned char)); //G channel
-	unsigned char* image_b = (unsigned char*) malloc(HEIGHT * WIDTH * sizeof(unsigned char)); //B channel
-	int i,j,k;
-	
-	int stride = 2;
-	int op_size = 32;
-	int err;
-	cl_device_id device_id;             // compute device id 
-	cl_context context;                 // compute context
-	cl_command_queue commands;          // compute command queue
-	cl_program program;                 // compute program
-	cl_kernel kernel;                   // compute kernel
+int openClDeviceConfig(){
 
-	cl_mem d_image_r; //R channel
-	cl_mem d_image_g; //G channel
-	cl_mem d_image_b; //B channel
-
-	cl_mem d_filter; //filter
-	cl_mem d_output; //output image
-	cl_event myevent; //profiling event
-	cl_ulong start; //time start
-	cl_ulong end; //time stop
-	cl_float kernelExecTimeNs;
-
-	unsigned int* output_image = (unsigned int*) malloc(FILTER_SIZE_L1 * (HEIGHT/2) * (WIDTH/2) * sizeof(unsigned int));
-	
 	printf("Initializing OpenCL device...\n"); 
 
-	cl_uint dev_cnt = 0;
 	clGetPlatformIDs(0, 0, &dev_cnt);
-	
-	cl_platform_id platform_ids[100];
 	clGetPlatformIDs(dev_cnt, platform_ids, NULL);
 	
 	// Connect to a compute device
@@ -182,7 +119,10 @@ int main(int argc, char** argv) {
 		printf("Error: Failed to create a device group!\n");
 		return EXIT_FAILURE;
 	}
-  
+
+}
+
+int openClCreateContext() {
 	// Create a compute context 
 	context = clCreateContext(0, 1, &device_id, NULL, NULL, &err);
 	if (!context)
@@ -198,7 +138,10 @@ int main(int argc, char** argv) {
 		printf("Error: Failed to create a command commands!\n");
 		return EXIT_FAILURE;
 	}
+}
 
+int openClCreateKernel() {
+	
 	// Create the compute program from the source file
 	char *KernelSource;
 	long lFileSize;
@@ -228,40 +171,197 @@ int main(int argc, char** argv) {
 		exit(1);
 	}
 
-	// Create the compute kernel in the program we wish to run
-	kernel = clCreateKernel(program, "convolute", &err);
-	if (!kernel || err != CL_SUCCESS)
+	// Create the compute kernel for standard convolution
+	standard_conv = clCreateKernel(program, "convolute", &err);
+	if (!standard_conv || err != CL_SUCCESS)
 	{
 		printf("Error: Failed to create compute kernel!\n");
 		exit(1);
 	}
 
-	decode_image(image,"Cat_Image0.ppm"); //call the read function
-    
+	// Create the compute kernel for depthwise convolution
+	depthwise_conv = clCreateKernel(program, "depthwise", &err);
+	if (!depthwise_conv || err != CL_SUCCESS)
+	{
+		printf("Error: Failed to create compute kernel!\n");
+		exit(1);
+	}
+
+	// Create the compute kernel for standard convolution
+	pointwise_conv = clCreateKernel(program, "pointwise", &err);
+	if (!pointwise_conv || err != CL_SUCCESS)
+	{
+		printf("Error: Failed to create compute kernel!\n");
+		exit(1);
+	}
+}
+
+void seperateChannels(unsigned char* imd,unsigned char* im1,unsigned char* im2,unsigned char* im3){
+    int i,j;    
+    for(i=0,j=0; i<HEIGHT_0*WIDTH_0; i++,j+=3){
+        im1[i] = imd[j];
+        im2[i] = imd[j+1];
+        im3[i] = imd[j+2];                
+    }
+}
+
+void readSquezeNetKernel(unsigned char *m, int read_size) 
+{
+
+	FILE *fp;	
+	char buff[255];
+	double n;
+	fp = fopen("weight.txt", "r");
+	//int sizeInt = K * K * K * 32 *sizeof(int);
+	int i=0;
+	for(i = 1; i < read_size + 1; i++)
+	{	
+		fscanf(fp, "%s", buff);
+		n = atof(buff);
+		m[i-1] = n;
+	}
+	fclose(fp);
+}
+/**
+ * @brief  Get the weights from the numpy array file
+ * @author  Kausutbh
+ * @date June 7, 2019
+ * @param 1. unsigned char* f : variable to put weights into
+ *        2. char filename[] : File name of the weights filename
+ *        3. int size
+ * @return None
+ */
+void getWeights(unsigned char* f, char filename[], int size)
+{
+    FILE *latfile;
+    latfile=fopen(filename,"r");
+    /* 80 is the offset of numpy array file*/
+    fseek(latfile, 80, SEEK_SET);
+    fread(f,sizeof(unsigned char),size,latfile);
+    fclose(latfile);
+}
+//Function to read image files in C
+int decode_image(unsigned char frame[HEIGHT_0 * WIDTH_0 * FDIM],char filename[])
+{
+	FILE *pFile;
+	pFile = fopen(filename, "r"); //read mode
+	fseek(pFile, 15, SEEK_SET);
+	fread(frame, sizeof(unsigned char), HEIGHT_0 * WIDTH_0 * FDIM, pFile);
+	fclose(pFile);
+	return 0;
+}
+//Function to load OpenCL kernel - taken from code given by T.A. Arnab 
+
+
+void display_data(unsigned char* data,int num) {
+	int i,j;
+	for (j = 0 ;j < num ; j++){
+		for(i = 0; i < num; i++){
+			printf("%d\t", data[j*WIDTH_0+i]);
+		}
+		printf("\n");
+	}
+	printf("\n");
+}
+
+void convStandard (unsigned int* opfm) {
+
+	cl_mem d_image_r; //R channel
+	cl_mem d_image_g; //G channel
+	cl_mem d_image_b; //B channel
+
+	unsigned char* image_r = (unsigned char*) malloc(HEIGHT_0 * WIDTH_0 * sizeof(unsigned char)); //R channel
+	unsigned char* image_g = (unsigned char*) malloc(HEIGHT_0 * WIDTH_0 * sizeof(unsigned char)); //G channel
+	unsigned char* image_b = (unsigned char*) malloc(HEIGHT_0 * WIDTH_0 * sizeof(unsigned char)); //B channel
+
+	int i,j,k;
+	
+	//Read pixel values from input image
+	decode_image(image,"Cat_Image0.ppm"); 
+
 	//separate R,G and B pixels
-	int count = 0;
+	seperateChannels(image, image_r, image_g, image_b);
 
-	for(i = 0; i<HEIGHT * WIDTH * K; i+=3)
-	{
-		image_r[count] = image[i];
-		count++;
-	}
-	count = 0;
+	//Get filter values
+    getWeights(filter,"weights/Conv2d_0",(IP_FM_0*FDIM*FDIM*FDIM));
 
-	for(j = 1; j<HEIGHT * WIDTH * K; j+=3)
+	//Create buffer for device
+	d_image_r = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_r, &err);
+	d_image_g = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_g, &err);
+	d_image_b = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_b, &err);
+	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, (HEIGHT_1)*(WIDTH_1)*IP_FM_0*sizeof(unsigned int), NULL, &err);
+	d_filter = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, IP_FM_0*FDIM*FDIM*FDIM*sizeof(unsigned char), filter, &err);
+
+	if (!d_image_r || !d_image_g || !d_image_b || !d_filter || !d_output)
 	{
-		image_g[count] = image[j]; 
-		count++;
+		printf("Error: Failed to allocate device memory!\n");
+		exit(1);
+	}    
+	
+	err = clEnqueueWriteBuffer(commands, d_image_r, CL_TRUE, 0, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_r, 0, NULL, NULL);
+	err = clEnqueueWriteBuffer(commands, d_image_g, CL_TRUE, 0, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_g, 0, NULL, NULL);   
+	err = clEnqueueWriteBuffer(commands, d_image_b, CL_TRUE, 0, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_b, 0, NULL, NULL);   
+	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, IP_FM_0*FDIM*FDIM*FDIM*sizeof(unsigned char), filter, 0, NULL, NULL);   
+   
+	if (err != CL_SUCCESS)
+	{
+		printf("Error: Failed to write data to device! %d\n", err);
+		exit(1);
 	}
-	count = 0;
+ 
+	int rows = HEIGHT_0;
+	int cols = WIDTH_0;
+	int filtersize = FDIM;
+	int no_fm_0 = OP_FM_0;
+    int stride = 2;
+
+	err = clSetKernelArg(standard_conv, 0, sizeof(cl_mem), (void *)&d_output);
+	err |= clSetKernelArg(standard_conv, 1, sizeof(cl_mem), (void *)&d_image_r);
+	err |= clSetKernelArg(standard_conv, 2, sizeof(cl_mem), (void *)&d_image_g);
+	err |= clSetKernelArg(standard_conv, 3, sizeof(cl_mem), (void *)&d_image_b);
+	err |= clSetKernelArg(standard_conv, 4, sizeof(cl_mem), (void *)&d_filter);
+	err |= clSetKernelArg(standard_conv, 5, sizeof(int), (void *)&rows);
+	err |= clSetKernelArg(standard_conv, 6, sizeof(int), (void *)&cols);
+	err |= clSetKernelArg(standard_conv, 7, sizeof(int), (void *)&filtersize);
+    err |= clSetKernelArg(standard_conv, 8, sizeof(int), (void *)&stride);
+    err |= clSetKernelArg(standard_conv, 9, sizeof(int), (void *)&no_fm_0);
+
+	if (err != CL_SUCCESS)
+	{ 
+		printf("Error: Failed to set kernel arguments! %d\n", err);
+		exit(1);
+	}
+	
+	size_t localWorkSize[2], globalWorkSize[2];
+	localWorkSize[0] = 8;
+	localWorkSize[1] = 8;
+	globalWorkSize[0] = 112;
+	globalWorkSize[1] = 112;
+	err = clEnqueueNDRangeKernel(commands, standard_conv, 2, NULL,globalWorkSize, localWorkSize, 0, NULL, &myevent);   
     
-	for(k = 2; k<HEIGHT * WIDTH * K; k+=3)
+	if (err != CL_SUCCESS)
 	{
-		image_b[count] = image[k];
-		count++; 
+		printf("Error: Failed to execute kernel! %d\n", err);
+		exit(1);
 	}
+   
+	clWaitForEvents(1,&myevent);	 
+	clFinish(commands);   
+	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_END,sizeof(cl_ulong), &end, NULL);
+	kernelExecTimeNs += end - start;
+	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, IP_FM_0*(HEIGHT_1)*(WIDTH_1)*sizeof(unsigned int), opfm, 0, NULL, NULL);
 
-	printf("Image R\n");
+	if (err != CL_SUCCESS)
+	{
+		printf("Error: Failed to read output array! %d\n", err);
+		exit(1);
+	}
+     
+	//Get kernel execution time
+	printf("Kernel Execution time for Layer 0: %f\n",kernelExecTimeNs/1000000000);
+
+	/*printf("Image R\n");
 	for (j = 0; j < 10; j++){
 		for(i = 0; i < 10; i++){
 			printf("%d\t", image_r[j*224+i]);
@@ -285,136 +385,52 @@ int main(int argc, char** argv) {
 		printf("\n");
 	}
     printf("\n");
-	//Get filter values
-<<<<<<< HEAD
-	readSquezeNetKernel(filter, (FILTER_SIZE_L1*K*K*K));
-
-	printf("Filter Layer 1 values");
-	for(i = 0; i < FILTER_SIZE_L1*K*K*K; i++){
-		printf("%d\t", filter[i]);
-	}
-
-=======
-	//readSquezeNetKernel(filter, (FILTER_SIZE_L1*K*K*K));
-    getWeights(filter,"weights/Conv2d_0",(FILTER_SIZE_L1*K*K*K));
->>>>>>> acb664e11a56fde644e1843a38aa67af099bb458
-	//Create buffer for device
-	d_image_r = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT*WIDTH*sizeof(unsigned char), image_r, &err);
-	d_image_g = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT*WIDTH*sizeof(unsigned char), image_g, &err);
-	d_image_b = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT*WIDTH*sizeof(unsigned char), image_b, &err);
-	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, (HEIGHT/2)*(WIDTH/2)*FILTER_SIZE_L1*sizeof(unsigned int), NULL, &err);
-	d_filter = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, FILTER_SIZE_L1*K*K*K*sizeof(unsigned char), filter, &err);
-
-	if (!d_image_r || !d_image_g || !d_image_b || !d_filter || !d_output)
-	{
-		printf("Error: Failed to allocate device memory!\n");
-		exit(1);
-	}    
 	
-	err = clEnqueueWriteBuffer(commands, d_image_r, CL_TRUE, 0, HEIGHT*WIDTH*sizeof(unsigned char), image_r, 0, NULL, NULL);
-	err = clEnqueueWriteBuffer(commands, d_image_g, CL_TRUE, 0, HEIGHT*WIDTH*sizeof(unsigned char), image_g, 0, NULL, NULL);   
-	err = clEnqueueWriteBuffer(commands, d_image_b, CL_TRUE, 0, HEIGHT*WIDTH*sizeof(unsigned char), image_b, 0, NULL, NULL);   
-	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, FILTER_SIZE_L1*K*K*K*sizeof(unsigned char), filter, 0, NULL, NULL);   
-   
-	if (err != CL_SUCCESS)
-	{
-		printf("Error: Failed to write data to device! %d\n", err);
-		exit(1);
-	}
- 
-	size_t localWorkSize[2], globalWorkSize[2];
-	int rows = HEIGHT;
-	int cols = WIDTH;
-	int filtersize = K;
-    
-	err = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&d_output);
-	err |= clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&d_image_r);
-	err |= clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *)&d_image_g);
-	err |= clSetKernelArg(kernel, 3, sizeof(cl_mem), (void *)&d_image_b);
-	err |= clSetKernelArg(kernel, 4, sizeof(cl_mem), (void *)&d_filter);
-	err |= clSetKernelArg(kernel, 5, sizeof(int), (void *)&rows);
-	err |= clSetKernelArg(kernel, 6, sizeof(int), (void *)&cols);
-	err |= clSetKernelArg(kernel, 7, sizeof(int), (void *)&filtersize);
-    err |= clSetKernelArg(kernel, 8, sizeof(int), (void *)&stride);
-    err |= clSetKernelArg(kernel, 9, sizeof(int), (void *)&op_size);
+	printf("Layer 1 Data\n");
 
-	if (err != CL_SUCCESS)
-	{ 
-		printf("Error: Failed to set kernel arguments! %d\n", err);
-		exit(1);
-	}
-
-	localWorkSize[0] = 8;
-	localWorkSize[1] = 8;
-	globalWorkSize[0] = 112;
-	globalWorkSize[1] = 112;
-	err = clEnqueueNDRangeKernel(commands, kernel, 2, NULL,globalWorkSize, localWorkSize, 0, NULL, &myevent);   
-    
-	if (err != CL_SUCCESS)
-	{
-		printf("Error: Failed to execute kernel! %d\n", err);
-		exit(1);
-	}
-   
-	clWaitForEvents(1,&myevent);	 
-	clFinish(commands);   
-	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_END,sizeof(cl_ulong), &end, NULL);
-	kernelExecTimeNs += end - start;
-	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, FILTER_SIZE_L1*(HEIGHT/2)*(WIDTH/2)*sizeof(unsigned int), output_image, 0, NULL, NULL);
-
-	if (err != CL_SUCCESS)
-	{
-		printf("Error: Failed to read output array! %d\n", err);
-		exit(1);
-	}
-     
-	//Get kernel execution time
-	printf("Kernel Execution time for Layer 1: %f\n",kernelExecTimeNs/1000000000);
-	
-	for (j = 0; j < 5; j++){
-		for(i = 0; i < 5; i++){
-			printf("%d\t", output_image[(j*112+i) + (112 * 112 * 8)]);
+	for (k = 0; k < 32; k++){
+		for (j = 0; j < 112; j++){
+			for(i = 0; i < 112; i++){
+				printf("%u\t", opfm[(j*112+i) + k]);
+			}
+			printf("\n");
 		}
-		printf("\n");
-	}
     printf("\n");
+	}*/
 
-	//Layer 2 Depth-Wise Convolution
+	free(image_r);
+	free(image_g);
+	free(image_b);
 
-	cl_mem d_image_l2;	//Layer 2 - Input Data
-	kernelExecTimeNs = 0;
-	op_size = 32;
-	stride = 1;
+	clReleaseMemObject(d_image_r);
+	clReleaseMemObject(d_image_g);
+	clReleaseMemObject(d_image_b);
 
-	// Create the compute kernel in the program we wish to run
-	kernel = clCreateKernel(program, "depthwise", &err);
-	if (!kernel || err != CL_SUCCESS)
-	{
-		printf("Error: Failed to create compute kernel!\n");
-		exit(1);
-	}
+}
 
-	readSquezeNetKernel(filter, (FILTER_SIZE_L1*K*K));
+void convDepthwise(unsigned int* ipfm, unsigned int* opfm, char* fileName, int iph, int ipw, int oph, int opw, int ip_fsize, int op_fsize, int stride) {
 	
-	printf("Filter Layer 2 values");
-	for(i = 0; i < FILTER_SIZE_L1*K*K; i++){
-		printf("%d\t", filter[i]);
-	}
+	cl_mem d_input;	//Input Data
+	kernelExecTimeNs = 0;
+	//int op_fm_1 = 32;
+	int i,j,k;
 
+	//Get filter values
+	getWeights(filter,fileName,(ip_fsize*FDIM*FDIM));
+	
 	//Create buffer for device
-	d_image_l2 = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, (HEIGHT/2)*(WIDTH/2)*FILTER_SIZE_L1*sizeof(unsigned int), output_image, &err);
-	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, (HEIGHT/2)*(WIDTH/2)*FILTER_SIZE_L1*sizeof(unsigned int), NULL, &err);
-	d_filter = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, FILTER_SIZE_L1*K*K*sizeof(unsigned char), filter, &err);	
+	d_input = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, iph*ipw*ip_fsize*sizeof(unsigned int), ipfm, &err);
+	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, oph*opw*op_fsize*sizeof(unsigned int), NULL, &err);
+	d_filter = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, ip_fsize*FDIM*FDIM*sizeof(unsigned char), filter, &err);	
 
-	if (!d_image_l2 || !d_filter || !d_output)
+	if (!d_input || !d_filter || !d_output)
 	{
 		printf("Error: Failed to allocate device memory!\n");
 		exit(1);
 	}    
 	
-	err = clEnqueueWriteBuffer(commands, d_image_l2, CL_TRUE, 0, (HEIGHT/2)*(WIDTH/2)*FILTER_SIZE_L1*sizeof(unsigned int), output_image, 0, NULL, NULL);
-	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, FILTER_SIZE_L1*K*K*sizeof(unsigned char), filter, 0, NULL, NULL);
+	err = clEnqueueWriteBuffer(commands, d_input, CL_TRUE, 0, iph*ipw*ip_fsize*sizeof(unsigned int), ipfm, 0, NULL, NULL);
+	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, ip_fsize*FDIM*FDIM*sizeof(unsigned char), filter, 0, NULL, NULL);
    
 	if (err != CL_SUCCESS)
 	{
@@ -422,18 +438,18 @@ int main(int argc, char** argv) {
 		exit(1);
 	}
  
-	rows = HEIGHT/2;
-	cols = WIDTH/2;
-	filtersize = K;
+	int rows = iph;
+	int cols = ipw;
+	int filtersize = FDIM;
     
-	err = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&d_output);
-	err |= clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&d_image_l2);
-	err |= clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *)&d_filter);
-	err |= clSetKernelArg(kernel, 3, sizeof(int), (void *)&rows);
-	err |= clSetKernelArg(kernel, 4, sizeof(int), (void *)&cols);
-	err |= clSetKernelArg(kernel, 5, sizeof(int), (void *)&filtersize);
-	err |= clSetKernelArg(kernel, 6, sizeof(int), (void *)&stride);
-	err |= clSetKernelArg(kernel, 7, sizeof(int), (void *)&op_size);
+	err = clSetKernelArg(depthwise_conv, 0, sizeof(cl_mem), (void *)&d_output);
+	err |= clSetKernelArg(depthwise_conv, 1, sizeof(cl_mem), (void *)&d_input);
+	err |= clSetKernelArg(depthwise_conv, 2, sizeof(cl_mem), (void *)&d_filter);
+	err |= clSetKernelArg(depthwise_conv, 3, sizeof(int), (void *)&rows);
+	err |= clSetKernelArg(depthwise_conv, 4, sizeof(int), (void *)&cols);
+	err |= clSetKernelArg(depthwise_conv, 5, sizeof(int), (void *)&filtersize);
+	err |= clSetKernelArg(depthwise_conv, 6, sizeof(int), (void *)&stride);
+	err |= clSetKernelArg(depthwise_conv, 7, sizeof(int), (void *)&op_fsize);
     
 	if (err != CL_SUCCESS)
 	{ 
@@ -441,11 +457,12 @@ int main(int argc, char** argv) {
 		exit(1);
 	}
 
+	size_t localWorkSize[2], globalWorkSize[2];
 	localWorkSize[0] = 8;
 	localWorkSize[1] = 8;
-	globalWorkSize[0] = 112;
-	globalWorkSize[1] = 112;
-	err = clEnqueueNDRangeKernel(commands, kernel, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myevent);   
+	globalWorkSize[0] = opw;
+	globalWorkSize[1] = oph;
+	err = clEnqueueNDRangeKernel(commands, depthwise_conv, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myevent);   
     
 	if (err != CL_SUCCESS)
 	{
@@ -458,7 +475,7 @@ int main(int argc, char** argv) {
 	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
 	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_END,sizeof(cl_ulong), &end, NULL);
 	kernelExecTimeNs += end - start;	
-	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, FILTER_SIZE_L1*(HEIGHT/2)*(WIDTH/2)*sizeof(unsigned int), output_image, 0, NULL, NULL);
+	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, op_fsize*oph*opw*sizeof(unsigned int), opfm, 0, NULL, NULL);
 
 	if (err != CL_SUCCESS)
 	{
@@ -466,52 +483,45 @@ int main(int argc, char** argv) {
 		exit(1);
 	}
 
-	printf("Kernel Execution time for Layer 2: %f\n",kernelExecTimeNs/1000000000);
+	printf("Kernel Execution time for Layer 1: %f\n",kernelExecTimeNs/1000000000);
 
-	for (j = 0; j < 5; j++){
-		for(i = 0; i < 5; i++){
-			printf("%d\t", output_image[(j*112+i) + (112 * 112 * 31)]);
+	/* printf("Data for Layer 2\n");
+
+	//for (k = 0; k < 32; k++){
+		for (j = 0; j < 112; j++){
+			for(i = 0; i < 112; i++){
+				printf("%u\t", opfm[(j*112+i)]);
+			}
+			printf("\n");
 		}
-		printf("\n");
-	}
-    printf("\n");
+    	printf("\n");
+	//}*/
+	clReleaseMemObject(d_input);
 
-	//Layer 3 Point-Wise Convolution
-	
-	unsigned int* output_image_l3 = (unsigned int*) malloc(FILTER_SIZE_L3 * (HEIGHT/2) * (WIDTH/2) * sizeof(unsigned int));
+}
 
-	cl_mem d_image_l3;	//Layer 3 - Input Data
+void convPointwise(unsigned int* ipfm, unsigned int* opfm, char* fileName, int iph, int ipw, int oph, int opw, int ip_fsize, int op_fsize, int stride) {
+
+	cl_mem d_input;	//Input Data
 	kernelExecTimeNs = 0;
-	op_size = 64;
+	int i,j,k;
 
-	readSquezeNetKernel(filter, (K_P*K_P*FILTER_SIZE_L1*FILTER_SIZE_L3));
-
-	printf("Filter Layer 3 values");
-	for(i = 0; i < K_P*K_P*FILTER_SIZE_L1*FILTER_SIZE_L3; i++){
-		printf("%d\t", filter[i]);
-	}
-
-	// Create the compute kernel in the program we wish to run
-	kernel = clCreateKernel(program, "pointwise", &err);
-	if (!kernel || err != CL_SUCCESS)
-	{
-		printf("Error: Failed to create compute kernel!\n");
-		exit(1);
-	}
-
+	//Get filter values
+	getWeights(filter,fileName,(ip_fsize*op_fsize*FDIM_P*FDIM_P));
+	
 	//Create buffer for device
-	d_image_l3 = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, (HEIGHT/2)*(WIDTH/2)*FILTER_SIZE_L1*sizeof(unsigned int), output_image, &err);
-	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, (HEIGHT/2)*(WIDTH/2)*FILTER_SIZE_L3*sizeof(unsigned int), NULL, &err);
-	d_filter = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, K_P*K_P*FILTER_SIZE_L1*FILTER_SIZE_L3*sizeof(unsigned char), filter, &err);
+	d_input = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, iph*ipw*ip_fsize*sizeof(unsigned int), ipfm, &err);
+	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, oph*opw*op_fsize*sizeof(unsigned int), NULL, &err);
+	d_filter = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, ip_fsize*op_fsize*FDIM_P*sizeof(unsigned char), filter, &err);	
 
-	if (!d_image_l3 || !d_filter || !d_output)
+	if (!d_input || !d_filter || !d_output)
 	{
 		printf("Error: Failed to allocate device memory!\n");
 		exit(1);
-	}    
+	}
 	
-	err = clEnqueueWriteBuffer(commands, d_image_l3, CL_TRUE, 0, (HEIGHT/2)*(WIDTH/2)*FILTER_SIZE_L1*sizeof(unsigned int), output_image, 0, NULL, NULL);
-	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, K_P*K_P*FILTER_SIZE_L1*FILTER_SIZE_L3*sizeof(unsigned char), filter, 0, NULL, NULL);
+	err = clEnqueueWriteBuffer(commands, d_input, CL_TRUE, 0, iph*ipw*ip_fsize*sizeof(unsigned int), ipfm, 0, NULL, NULL);
+	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, ip_fsize*op_fsize*FDIM_P*FDIM_P*sizeof(unsigned char), filter, 0, NULL, NULL);
    
 	if (err != CL_SUCCESS)
 	{
@@ -519,17 +529,17 @@ int main(int argc, char** argv) {
 		exit(1);
 	}
  
-	rows = HEIGHT/2;
-	cols = WIDTH/2;
-	filtersize = FILTER_SIZE_L1;
+	int rows = iph;
+	int cols = ipw;
+	int filtersize = ip_fsize;
     
-	err = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&d_output);
-	err |= clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&d_image_l3);
-	err |= clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *)&d_filter);
-	err |= clSetKernelArg(kernel, 3, sizeof(int), (void *)&rows);
-	err |= clSetKernelArg(kernel, 4, sizeof(int), (void *)&cols);
-	err |= clSetKernelArg(kernel, 5, sizeof(int), (void *)&filtersize);
-	err |= clSetKernelArg(kernel, 6, sizeof(int), (void *)&op_size);
+	err = clSetKernelArg(pointwise_conv, 0, sizeof(cl_mem), (void *)&d_output);
+	err |= clSetKernelArg(pointwise_conv, 1, sizeof(cl_mem), (void *)&d_input);
+	err |= clSetKernelArg(pointwise_conv, 2, sizeof(cl_mem), (void *)&d_filter);
+	err |= clSetKernelArg(pointwise_conv, 3, sizeof(int), (void *)&rows);
+	err |= clSetKernelArg(pointwise_conv, 4, sizeof(int), (void *)&cols);
+	err |= clSetKernelArg(pointwise_conv, 5, sizeof(int), (void *)&filtersize);
+	err |= clSetKernelArg(pointwise_conv, 6, sizeof(int), (void *)&op_fsize);
 	
 	if (err != CL_SUCCESS)
 	{ 
@@ -537,11 +547,12 @@ int main(int argc, char** argv) {
 		exit(1);
 	}
 
+	size_t localWorkSize[2], globalWorkSize[2];
 	localWorkSize[0] = 8;
 	localWorkSize[1] = 8;
-	globalWorkSize[0] = 112;
-	globalWorkSize[1] = 112;
-	err = clEnqueueNDRangeKernel(commands, kernel, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myevent);   
+	globalWorkSize[0] = opw;
+	globalWorkSize[1] = oph;
+	err = clEnqueueNDRangeKernel(commands, pointwise_conv, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myevent);   
     
 	if (err != CL_SUCCESS)
 	{
@@ -554,7 +565,7 @@ int main(int argc, char** argv) {
 	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
 	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_END,sizeof(cl_ulong), &end, NULL);
 	kernelExecTimeNs += end - start;
-	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, FILTER_SIZE_L3*(HEIGHT/2)*(WIDTH/2)*sizeof(unsigned int), output_image_l3, 0, NULL, NULL);
+	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, op_fsize*oph*opw*sizeof(unsigned int), opfm, 0, NULL, NULL);
 
 	if (err != CL_SUCCESS)
 	{
@@ -563,52 +574,56 @@ int main(int argc, char** argv) {
 	}
 
 	//Get kernel execution time
-	printf("Kernel Execution time for Layer 3: %f\n",kernelExecTimeNs/1000000000);
+	printf("Kernel Execution time for Layer 2: %f\n",kernelExecTimeNs/1000000000);
 
-	for (j = 0; j < 5; j++){
-		for(i = 0; i < 5; i++){
-			printf("%d\t", output_image_l3[(j*112+i)]);
+	/* printf("Data for Layer 3\n");
+
+	//for (k = 0; k < 32; k++){
+		for (j = 0; j < 112; j++){
+			for(i = 0; i < 112; i++){
+				printf("%u\t", opfm[(j*112+i)]);
+			}
+			printf("\n");
 		}
-		printf("\n");
-	}
-    printf("\n");
+    	printf("\n");
+	//} */
+	clReleaseMemObject(d_input);
+}
+
+
+//This is the main function
+int main(int argc, char** argv) {
+
+	filter = (unsigned char*) malloc(FILTER_MAX*FILTER_MAX*FDIM*FDIM*FDIM*sizeof(unsigned char));
+	unsigned int* op_fm_0 = (unsigned int*) malloc(IP_FM_1 * HEIGHT_1 * WIDTH_1 * sizeof(unsigned int)); //output feature map for layer 0
+	int i,j,k;
+
+	openClDeviceConfig();
+	openClCreateContext();
+	openClCreateKernel();
+	convStandard(op_fm_0); //Layer 0 - Standard Convolution
+	
+	//Layer 1 Depth-Wise Convolution
+
+	unsigned int* op_fm_1 = (unsigned int*) malloc(IP_FM_2 * HEIGHT_2 * WIDTH_2 * sizeof(unsigned int)); //output feature map for layer 1
+	convDepthwise(op_fm_0,op_fm_1, "weights/Conv2d_1_depthwise", HEIGHT_1, WIDTH_1, HEIGHT_2, WIDTH_2, IP_FM_1, IP_FM_2, 1);	//Layer 1 Depth-Wise Convolution
+	
+	//Layer 3 Point-Wise Convolution
+
+	unsigned int* op_fm_2 = (unsigned int*) malloc(IP_FM_3 * HEIGHT_3 * WIDTH_3 * sizeof(unsigned int));	//output feature map for layer 2
+	convPointwise(op_fm_1,op_fm_2, "weights/Conv2d_1_pointwise", HEIGHT_2, WIDTH_2, HEIGHT_3, WIDTH_3, IP_FM_2, IP_FM_3, 1);	//Layer 2 Point-Wise Convolution
 
 	//Shutdown and cleanup
-	free(image_r);
-	free(image_g);
-	free(image_b);
 	free(filter);
-	free(output_image);
-	free(output_image_l3);/*free(output_image_l4);free(output_image_l5);
- 	free(output_image_l5);free(output_image_l6);free(output_image_l7);
-	free(output_image_l8);free(output_image_l9);free(output_image_l10);
-	free(output_image_l11);free(output_image_l12);free(output_image_l13);
-	free(output_image_l14);free(output_image_l15);free(output_image_l16);
-	free(output_image_l17);free(output_image_l18);free(output_image_l19);
-	free(output_image_l20);free(output_image_l21);free(output_image_l22);
-	free(output_image_l23);free(output_image_l24);free(output_image_l25);
-	free(output_image_l26);free(output_image_l27);free(output_image_l28);free(output_image_l29);free(output_softmax);*/
-	clReleaseMemObject(d_image_r);
-	clReleaseMemObject(d_image_g);
-	clReleaseMemObject(d_image_b);
-	clReleaseMemObject(d_image_l2);
-	clReleaseMemObject(d_image_l3);
-	/*clReleaseMemObject(d_image_l4);
-	clReleaseMemObject(d_image_l5);	
-	clReleaseMemObject(d_image_l6);
-	clReleaseMemObject(d_image_l7);
-	clReleaseMemObject(d_image_l8);
-	clReleaseMemObject(d_image_l9);
-	clReleaseMemObject(d_image_l10);
-	clReleaseMemObject(d_image_l11);
-	clReleaseMemObject(d_image_l12);clReleaseMemObject(d_image_l13);clReleaseMemObject(d_image_l14);clReleaseMemObject(d_image_l15);
-	clReleaseMemObject(d_image_l16);clReleaseMemObject(d_image_l17);clReleaseMemObject(d_image_l18);clReleaseMemObject(d_image_l19);clReleaseMemObject(d_image_l20);
-	clReleaseMemObject(d_image_l21);clReleaseMemObject(d_image_l22);clReleaseMemObject(d_image_l23);clReleaseMemObject(d_image_l24);clReleaseMemObject(d_image_l25);
-	clReleaseMemObject(d_image_l26);clReleaseMemObject(d_image_l27);clReleaseMemObject(d_image_l28);clReleaseMemObject(d_image_l29);*/
+	free(op_fm_0);
+	free(op_fm_1);
+	free(op_fm_2);
 	clReleaseMemObject(d_output);
 	clReleaseMemObject(d_filter);
 	clReleaseProgram(program);
-	clReleaseKernel(kernel);
+	clReleaseKernel(standard_conv);
+	clReleaseKernel(depthwise_conv);
+	clReleaseKernel(pointwise_conv);
 	clReleaseCommandQueue(commands);
 	clReleaseContext(context);
 	return 0;
