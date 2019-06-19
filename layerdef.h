@@ -54,9 +54,19 @@
 * Defines - Layer 5 Depthwise Convolution - Stride 1                           *
 *******************************************************************************/
 
+#define HEIGHT_5 56
+#define WIDTH_5 56
+#define IP_FM_5 128
+#define OP_FM_5 128
+
+/*******************************************************************************
+* Defines - Layer 6 Pointwise Convolution - Stride 1                           *
+*******************************************************************************/
+
 /* #define HEIGHT_5 56
 #define WIDTH_5 56
-#define FILTER_SIZE_L5 64
+#define IP_FM_5 128
+#define OP_FM_5 128
 
 
 
