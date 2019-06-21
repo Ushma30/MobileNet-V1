@@ -275,6 +275,7 @@ void convStandard (unsigned char* opfm) {
 	unsigned char* image_b = (unsigned char*) malloc(HEIGHT_0 * WIDTH_0 * sizeof(unsigned char)); //B channel
 
 	int i,j,k;
+	
 
 	int bias[32] = {-7254, 13465, -1591, -2488, 9901, 13359, 1947, 16203, -2165, -7399, -5250, 13549, 17637, 9441, 3877, 17663, -7985, 13809, 12408, 11717, 
 	-3441, -104, -13034, 17888, -12487, 15548, 26765, -2599, 14359, 10137, -2149, 20334};
@@ -333,6 +334,7 @@ void convStandard (unsigned char* opfm) {
 	err |= clSetKernelArg(standard_conv, 7, sizeof(int), (void *)&filtersize);
     err |= clSetKernelArg(standard_conv, 8, sizeof(int), (void *)&stride);
     err |= clSetKernelArg(standard_conv, 9, sizeof(int), (void *)&no_fm_0);
+
 
 	if (err != CL_SUCCESS)
 	{ 
@@ -600,17 +602,17 @@ int main(int argc, char** argv) {
 	//Layer 1 Depth-Wise Convolution
 
 	unsigned char* op_fm_1 = (unsigned char*) malloc(IP_FM_2 * HEIGHT_2 * WIDTH_2 * sizeof(unsigned char)); //output feature map for layer 1
-	convDepthwise(op_fm_0,op_fm_1, "weights/Conv2d_1_depthwise", HEIGHT_1, WIDTH_1, HEIGHT_2, WIDTH_2, IP_FM_1, IP_FM_2, 1);	//Layer 1 Depth-Wise Convolution
+	//convDepthwise(op_fm_0,op_fm_1, "weights/Conv2d_1_depthwise", HEIGHT_1, WIDTH_1, HEIGHT_2, WIDTH_2, IP_FM_1, IP_FM_2, 1);	//Layer 1 Depth-Wise Convolution
 	
 	//Layer 2 Point-Wise Convolution
 
 	unsigned char* op_fm_2 = (unsigned char*) malloc(IP_FM_3 * HEIGHT_3 * WIDTH_3 * sizeof(unsigned char));	//output feature map for layer 2
-	convPointwise(op_fm_1,op_fm_2, "weights/Conv2d_1_pointwise", HEIGHT_2, WIDTH_2, HEIGHT_3, WIDTH_3, IP_FM_2, IP_FM_3, 1);	//Layer 2 Point-Wise Convolution
+	//convPointwise(op_fm_1,op_fm_2, "weights/Conv2d_1_pointwise", HEIGHT_2, WIDTH_2, HEIGHT_3, WIDTH_3, IP_FM_2, IP_FM_3, 1);	//Layer 2 Point-Wise Convolution
 
 	//Layer 3 Depth-Wise Convolution
 
 	unsigned char* op_fm_3 = (unsigned char*) malloc(IP_FM_4 * HEIGHT_4 * WIDTH_4 * sizeof(unsigned char)); //output feature map for layer 2
-	convDepthwise(op_fm_2,op_fm_3, "weights/Conv2d_2_depthwise", HEIGHT_3, WIDTH_3, HEIGHT_4, WIDTH_4, IP_FM_3, IP_FM_4, 2);	//Layer 3 Depth-Wise Convolution
+	//convDepthwise(op_fm_2,op_fm_3, "weights/Conv2d_2_depthwise", HEIGHT_3, WIDTH_3, HEIGHT_4, WIDTH_4, IP_FM_3, IP_FM_4, 2);	//Layer 3 Depth-Wise Convolution
 
 	//Shutdown and cleanup
 	free(filter);
