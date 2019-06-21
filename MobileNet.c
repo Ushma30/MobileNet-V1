@@ -264,7 +264,7 @@ void display_data(unsigned char* data,int num) {
 	printf("\n");
 }
 
-void convStandard (int* opfm) {
+void convStandard (unsigned char* opfm) {
 
 	cl_mem d_image_r; //R channel
 	cl_mem d_image_g; //G channel
@@ -275,6 +275,9 @@ void convStandard (int* opfm) {
 	unsigned char* image_b = (unsigned char*) malloc(HEIGHT_0 * WIDTH_0 * sizeof(unsigned char)); //B channel
 
 	int i,j,k;
+
+	int bias[32] = {-7254, 13465, -1591, -2488, 9901, 13359, 1947, 16203, -2165, -7399, -5250, 13549, 17637, 9441, 3877, 17663, -7985, 13809, 12408, 11717, 
+	-3441, -104, -13034, 17888, -12487, 15548, 26765, -2599, 14359, 10137, -2149, 20334};
 	
 	//Read pixel values from input image
 	decode_image(image,"Cat_Image0.ppm"); 
@@ -294,7 +297,7 @@ void convStandard (int* opfm) {
 	d_image_r = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_r, &err);
 	d_image_g = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_g, &err);
 	d_image_b = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_b, &err);
-	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, (HEIGHT_1)*(WIDTH_1)*IP_FM_1*sizeof(int), NULL, &err);
+	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, (HEIGHT_1)*(WIDTH_1)*IP_FM_1*sizeof(unsigned char), NULL, &err);
 	d_filter = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, IP_FM_1*FDIM*FDIM*FDIM*sizeof(unsigned char), filter, &err);
 
 	if (!d_image_r || !d_image_g || !d_image_b || !d_filter || !d_output)
@@ -355,7 +358,7 @@ void convStandard (int* opfm) {
 	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
 	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_END,sizeof(cl_ulong), &end, NULL);
 	kernelExecTimeNs += end - start;
-	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, IP_FM_1*(HEIGHT_1)*(WIDTH_1)*sizeof(int), opfm, 0, NULL, NULL);
+	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, IP_FM_1*(HEIGHT_1)*(WIDTH_1)*sizeof(unsigned char), opfm, 0, NULL, NULL);
 
 	if (err != CL_SUCCESS)
 	{
@@ -388,7 +391,7 @@ void convStandard (int* opfm) {
 
 }
 
-void convDepthwise(int* ipfm, int* opfm, char* fileName, int iph, int ipw, int oph, int opw, int ip_fsize, int op_fsize, int stride) {
+void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName, int iph, int ipw, int oph, int opw, int ip_fsize, int op_fsize, int stride) {
 	
 	cl_mem d_input;	//Input Data
 	kernelExecTimeNs = 0;
@@ -399,8 +402,8 @@ void convDepthwise(int* ipfm, int* opfm, char* fileName, int iph, int ipw, int o
 	getWeights(filter,fileName,(ip_fsize*FDIM*FDIM));
 	
 	//Create buffer for device
-	d_input = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, iph*ipw*ip_fsize*sizeof(int), ipfm, &err);
-	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, oph*opw*op_fsize*sizeof(int), NULL, &err);
+	d_input = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, iph*ipw*ip_fsize*sizeof(unsigned char), ipfm, &err);
+	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, oph*opw*op_fsize*sizeof(unsigned char), NULL, &err);
 	d_filter = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, ip_fsize*FDIM*FDIM*sizeof(unsigned char), filter, &err);	
 
 	if (!d_input || !d_filter || !d_output)
@@ -409,7 +412,7 @@ void convDepthwise(int* ipfm, int* opfm, char* fileName, int iph, int ipw, int o
 		exit(1);
 	}    
 	
-	err = clEnqueueWriteBuffer(commands, d_input, CL_TRUE, 0, iph*ipw*ip_fsize*sizeof(int), ipfm, 0, NULL, NULL);
+	err = clEnqueueWriteBuffer(commands, d_input, CL_TRUE, 0, iph*ipw*ip_fsize*sizeof(unsigned char), ipfm, 0, NULL, NULL);
 	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, ip_fsize*FDIM*FDIM*sizeof(unsigned char), filter, 0, NULL, NULL);
    
 	if (err != CL_SUCCESS)
@@ -455,7 +458,7 @@ void convDepthwise(int* ipfm, int* opfm, char* fileName, int iph, int ipw, int o
 	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
 	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_END,sizeof(cl_ulong), &end, NULL);
 	kernelExecTimeNs += end - start;	
-	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, op_fsize*oph*opw*sizeof(int), opfm, 0, NULL, NULL);
+	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, op_fsize*oph*opw*sizeof(unsigned char), opfm, 0, NULL, NULL);
 
 	if (err != CL_SUCCESS)
 	{
@@ -486,7 +489,7 @@ void convDepthwise(int* ipfm, int* opfm, char* fileName, int iph, int ipw, int o
 
 }
 
-void convPointwise(int* ipfm, int* opfm, char* fileName, int iph, int ipw, int oph, int opw, int ip_fsize, int op_fsize, int stride) {
+void convPointwise(unsigned char* ipfm, unsigned char* opfm, char* fileName, int iph, int ipw, int oph, int opw, int ip_fsize, int op_fsize, int stride) {
 
 	cl_mem d_input;	//Input Data
 	kernelExecTimeNs = 0;
@@ -496,8 +499,8 @@ void convPointwise(int* ipfm, int* opfm, char* fileName, int iph, int ipw, int o
 	getWeights(filter,fileName,(ip_fsize*op_fsize*FDIM_P*FDIM_P));
 	
 	//Create buffer for device
-	d_input = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, iph*ipw*ip_fsize*sizeof(int), ipfm, &err);
-	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, oph*opw*op_fsize*sizeof(int), NULL, &err);
+	d_input = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, iph*ipw*ip_fsize*sizeof(unsigned char), ipfm, &err);
+	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, oph*opw*op_fsize*sizeof(unsigned char), NULL, &err);
 	d_filter = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, ip_fsize*op_fsize*FDIM_P*sizeof(unsigned char), filter, &err);	
 
 	if (!d_input || !d_filter || !d_output)
@@ -506,7 +509,7 @@ void convPointwise(int* ipfm, int* opfm, char* fileName, int iph, int ipw, int o
 		exit(1);
 	}
 	
-	err = clEnqueueWriteBuffer(commands, d_input, CL_TRUE, 0, iph*ipw*ip_fsize*sizeof(int), ipfm, 0, NULL, NULL);
+	err = clEnqueueWriteBuffer(commands, d_input, CL_TRUE, 0, iph*ipw*ip_fsize*sizeof(unsigned char), ipfm, 0, NULL, NULL);
 	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, ip_fsize*op_fsize*FDIM_P*FDIM_P*sizeof(unsigned char), filter, 0, NULL, NULL);
    
 	if (err != CL_SUCCESS)
@@ -551,7 +554,7 @@ void convPointwise(int* ipfm, int* opfm, char* fileName, int iph, int ipw, int o
 	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
 	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_END,sizeof(cl_ulong), &end, NULL);
 	kernelExecTimeNs += end - start;
-	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, op_fsize*oph*opw*sizeof(int), opfm, 0, NULL, NULL);
+	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, op_fsize*oph*opw*sizeof(unsigned char), opfm, 0, NULL, NULL);
 
 	if (err != CL_SUCCESS)
 	{
@@ -586,7 +589,7 @@ void convPointwise(int* ipfm, int* opfm, char* fileName, int iph, int ipw, int o
 int main(int argc, char** argv) {
 
 	filter = (unsigned char*) malloc(FILTER_MAX*FILTER_MAX*FDIM*FDIM*FDIM*sizeof(unsigned char));
-	int* op_fm_0 = (int*) malloc(IP_FM_1 * HEIGHT_1 * WIDTH_1 * sizeof(int)); //output feature map for layer 0
+	unsigned char* op_fm_0 = (unsigned char*) malloc(IP_FM_1 * HEIGHT_1 * WIDTH_1 * sizeof(unsigned char)); //output feature map for layer 0
 	int i,j,k;
 
 	openClDeviceConfig();
@@ -596,17 +599,17 @@ int main(int argc, char** argv) {
 	
 	//Layer 1 Depth-Wise Convolution
 
-	int* op_fm_1 = (int*) malloc(IP_FM_2 * HEIGHT_2 * WIDTH_2 * sizeof(int)); //output feature map for layer 1
+	unsigned char* op_fm_1 = (unsigned char*) malloc(IP_FM_2 * HEIGHT_2 * WIDTH_2 * sizeof(unsigned char)); //output feature map for layer 1
 	convDepthwise(op_fm_0,op_fm_1, "weights/Conv2d_1_depthwise", HEIGHT_1, WIDTH_1, HEIGHT_2, WIDTH_2, IP_FM_1, IP_FM_2, 1);	//Layer 1 Depth-Wise Convolution
 	
 	//Layer 2 Point-Wise Convolution
 
-	int* op_fm_2 = (int*) malloc(IP_FM_3 * HEIGHT_3 * WIDTH_3 * sizeof(int));	//output feature map for layer 2
+	unsigned char* op_fm_2 = (unsigned char*) malloc(IP_FM_3 * HEIGHT_3 * WIDTH_3 * sizeof(unsigned char));	//output feature map for layer 2
 	convPointwise(op_fm_1,op_fm_2, "weights/Conv2d_1_pointwise", HEIGHT_2, WIDTH_2, HEIGHT_3, WIDTH_3, IP_FM_2, IP_FM_3, 1);	//Layer 2 Point-Wise Convolution
 
 	//Layer 3 Depth-Wise Convolution
 
-	int* op_fm_3 = (int*) malloc(IP_FM_4 * HEIGHT_4 * WIDTH_4 * sizeof(int)); //output feature map for layer 2
+	unsigned char* op_fm_3 = (unsigned char*) malloc(IP_FM_4 * HEIGHT_4 * WIDTH_4 * sizeof(unsigned char)); //output feature map for layer 2
 	convDepthwise(op_fm_2,op_fm_3, "weights/Conv2d_2_depthwise", HEIGHT_3, WIDTH_3, HEIGHT_4, WIDTH_4, IP_FM_3, IP_FM_4, 2);	//Layer 3 Depth-Wise Convolution
 
 	//Shutdown and cleanup
