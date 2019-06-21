@@ -29,6 +29,10 @@
 unsigned char image[HEIGHT_0 * WIDTH_0 * FDIM]; //image with 3 input channels
 unsigned char* filter;
 int err;
+/*Bias*/
+unsigned int size_bias;
+unsigned int mem_size_bias;
+int* h_bias;
 
 cl_device_id device_id;             // compute device id 
 cl_context context;                 // compute context
@@ -49,6 +53,7 @@ cl_platform_id platform_ids[100];
 
 
 int decode_image(unsigned char frame[HEIGHT_0 * WIDTH_0 * FDIM], char filename[]);
+void getBias(int* f, char filename[], int size);
 
 long LoadOpenCLKernel(char const* path, char **buf)
 {
@@ -238,6 +243,24 @@ void getWeights(unsigned char* f, char filename[], int size)
     /* 80 is the offset of numpy array file*/
     fseek(latfile, 80, SEEK_SET);
     fread(f,sizeof(unsigned char),size,latfile);
+    fclose(latfile);
+}
+/**
+ * @brief  Get the bias from the numpy array file
+ * @author  Kausutbh
+ * @date June 20, 2019
+ * @param 1. int* f : variable to put weights into
+ *        2. char filename[] : File name of the weights filename
+ *        3. int size
+ * @return None
+ */
+void getBias(int* f, char filename[], int size)
+{
+    FILE *latfile;
+    latfile=fopen(filename,"r");
+    /* 80 is the offset of numpy array file*/
+    fseek(latfile, 80, SEEK_SET);
+    fread(f,sizeof(int),size,latfile);
     fclose(latfile);
 }
 //Function to read image files in C
@@ -594,6 +617,11 @@ void convPointwise(unsigned int* ipfm, unsigned int* opfm, char* fileName, int i
 //This is the main function
 int main(int argc, char** argv) {
 
+    size_bias = 32;
+    mem_size_bias = sizeof(int) * size_bias;
+    h_bias = (int*)malloc(mem_size_bias);
+
+    getBias(h_bias,"Conv2d_0",size_bias);
 	filter = (unsigned char*) malloc(FILTER_MAX*FILTER_MAX*FDIM*FDIM*FDIM*sizeof(unsigned char));
 	unsigned int* op_fm_0 = (unsigned int*) malloc(IP_FM_1 * HEIGHT_1 * WIDTH_1 * sizeof(unsigned int)); //output feature map for layer 0
 	int i,j,k;
