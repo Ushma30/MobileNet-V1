@@ -13,6 +13,13 @@
 #define WIDTH_0 224
 #define IP_FM_0 3
 #define OP_FM_0 32
+#define S1_0 0.0078125
+#define S2_0 0.02182667888700962
+#define S3_0 0.023528477177023888
+#define M_0 ((S1_0 * S2_0) / S3_0)
+#define SBIAS_0 (S1_0 * S2_0)
+#define Z1_0 128 
+#define Z2_0 151
 
 /*******************************************************************************
 * Defines - Layer 1 Depthwise Convolution - Stride 1                           *
