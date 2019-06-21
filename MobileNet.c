@@ -621,7 +621,7 @@ int main(int argc, char** argv) {
     mem_size_bias = sizeof(int) * size_bias;
     h_bias = (int*)malloc(mem_size_bias);
 
-    getBias(h_bias,"Conv2d_0",size_bias);
+    getBias(h_bias,"bias/BConv2d_0",size_bias);
 	filter = (unsigned char*) malloc(FILTER_MAX*FILTER_MAX*FDIM*FDIM*FDIM*sizeof(unsigned char));
 	unsigned int* op_fm_0 = (unsigned int*) malloc(IP_FM_1 * HEIGHT_1 * WIDTH_1 * sizeof(unsigned int)); //output feature map for layer 0
 	int i,j,k;
