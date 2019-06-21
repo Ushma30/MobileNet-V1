@@ -448,7 +448,9 @@ void convStandard (unsigned char* opfm) {
 
 }
 
-void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias, char* fileName_filter, int iph, int ipw, int oph, int opw, int ip_fsize, int op_fsize, int stride) {
+void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias, 
+				   char* fileName_filter, int iph, int ipw, int oph, int opw, int ip_fsize, 
+				   int op_fsize, int stride, float M, float Sbias, int Z2) {
 	
 	cl_mem d_input;	//Input Data
 	kernelExecTimeNs = 0;
@@ -655,7 +657,7 @@ int main(int argc, char** argv) {
 	//Layer 1 Depth-Wise Convolution
 
 	unsigned char* op_fm_1 = (unsigned char*) malloc(IP_FM_2 * HEIGHT_2 * WIDTH_2 * sizeof(unsigned char)); //output feature map for layer 1
-	convDepthwise(op_fm_0,op_fm_1, "bias/BConv2d_1_depthwise", "weights/Conv2d_1_depthwise", HEIGHT_1, WIDTH_1, HEIGHT_2, WIDTH_2, IP_FM_1, IP_FM_2, 1);	//Layer 1 Depth-Wise Convolution
+	convDepthwise(op_fm_0,op_fm_1, "bias/BConv2d_1_depthwise", "weights/Conv2d_1_depthwise", HEIGHT_1, WIDTH_1, HEIGHT_2, WIDTH_2, IP_FM_1, IP_FM_2, 1, M_1, SBIAS_1, Z2_1);	//Layer 1 Depth-Wise Convolution
 	
 	//Layer 3 Point-Wise Convolution
 
