@@ -1,5 +1,5 @@
 
-__kernel void convolute(__global unsigned char* output, __global unsigned char* inp_image_r, __global unsigned char* inp_image_g, __global unsigned char* inp_image_b, 
+__kernel void convolute(__global unsigned int* output, __global unsigned char* inp_image_r, __global unsigned char* inp_image_g, __global unsigned char* inp_image_b, 
 						__global unsigned char* filter_k, int rows, int cols, int filtersize, int stride, int op_size ) {
 
 	int tx = get_global_id(0);
@@ -8,7 +8,6 @@ __kernel void convolute(__global unsigned char* output, __global unsigned char* 
 	int half_filtersize = (filtersize)/2;
 
 	unsigned int sum = 0;
-	//float quantizer = 0.000255;
 	int xindex=0, yindex=0, findex=0, filter_count=0;
 	int i,j,l;
 	while (filter_count < op_size) {
@@ -25,7 +24,6 @@ __kernel void convolute(__global unsigned char* output, __global unsigned char* 
 				else {
 					/*if (tx == 1 && ty == 1) {
 						printf("Image r: %d\t%d\n",inp_image_r[yindex * get_global_size(0) * stride + xindex],filter_k[findex]);
-						printf("Filter index %d\n", findex);
 					}*/
  						sum +=  inp_image_r[yindex * get_global_size(0) * stride + xindex] * filter_k[findex];
 				}
@@ -41,7 +39,6 @@ __kernel void convolute(__global unsigned char* output, __global unsigned char* 
 				else {
 					/*if (tx == 1 && ty == 1) {
 						printf("Img g: %d\t%d\n",inp_image_g[yindex * get_global_size(0) * stride + xindex],filter_k[findex]);
-						printf("Filter index %d\n", findex);
 					}*/
  					sum +=  inp_image_g[yindex * get_global_size(0) * stride + xindex] * filter_k[findex];
 				}
@@ -57,7 +54,6 @@ __kernel void convolute(__global unsigned char* output, __global unsigned char* 
 				else {
 					/*if (tx == 1 && ty == 1) {
 						printf("Img b: %d\t%d\n",inp_image_b[yindex * get_global_size(0) * stride + xindex],filter_k[findex]);
-						printf("Filter index %d\n", findex);
 					}*/
  					sum +=  inp_image_b[yindex * get_global_size(0) * stride + xindex] * filter_k[findex];
 				}
@@ -69,20 +65,12 @@ __kernel void convolute(__global unsigned char* output, __global unsigned char* 
 		/*if (tx == 1 && ty == 1) {
 			printf("Sum: %d\t",sum);
 		}*/
-
 		output[(ty * get_global_size(0) + tx) + output_shift] = sum;
 		sum = 0;
 		}
 }
 
-__kernel void depthwise(__global unsigned char* output, /* Ouput feature Map storage*/
-						__global unsigned char* inp_image,
-						__global unsigned char* filter_k, 
-						int rows, 
-						int cols, 
-						int filtersize, 
-						int stride, 
-						int op_size ) { 
+__kernel void depthwise(__global unsigned int* output, __global unsigned int* inp_image, __global unsigned char* filter_k, int rows, int cols, int filtersize, int stride, int op_size ) { 
 
 	int tx = get_global_id(0);
 	int ty = get_global_id(1);
@@ -90,7 +78,6 @@ __kernel void depthwise(__global unsigned char* output, /* Ouput feature Map sto
 	int half_filtersize = (filtersize)/2;
 
 	unsigned int sum = 0;
-	//float quantizer = 1; 
 	int xindex=0, yindex=0, findex=0, filter_count=0;
 	int i,j,l;
 	while (filter_count < op_size) {
@@ -104,31 +91,24 @@ __kernel void depthwise(__global unsigned char* output, /* Ouput feature Map sto
 					sum +=  0 * filter_k[findex];
 				}
 				else {
-					/*if (tx == 1 && ty == 1) {
-						printf("Img : %d\t%d\n",inp_image[yindex * get_global_size(0) * stride + xindex],filter_k[findex]);
-					}*/
  					sum +=  inp_image[yindex * get_global_size(0) * stride + xindex] * filter_k[findex];
 				}
 			}
 		}
-		/*if (sum <= 0) {
+		if (sum <= 0) {
 			sum = 0;		
-		}*/
-		if (tx == 1 && ty == 1) {
-			printf("op : %u\n", (sum));
 		}
 		output[(ty * get_global_size(0) + tx) + output_shift] = sum;
 		sum = 0;
 	}
 }
 
-__kernel void pointwise(__global unsigned char* output, __global unsigned char* inp_image, __global unsigned char* filter_k, int rows, int cols, int filtersize, int op_size ) { 
+__kernel void pointwise(__global unsigned int* output, __global unsigned int* inp_image, __global unsigned char* filter_k, int rows, int cols, int filtersize, int op_size ) { 
 
 	int tx = get_global_id(0);
 	int ty = get_global_id(1);
 
 	unsigned int sum = 0;
-	//float quantizer = 0.000255;
 	int findex=0, filter_count=0;
 	int i,j,l;
 	while (filter_count < op_size) {
@@ -136,17 +116,11 @@ __kernel void pointwise(__global unsigned char* output, __global unsigned char* 
 		filter_count++;
 		
 		for (i = 0; i < filtersize; i++,findex++) {
-			if (tx == 1 && ty == 1) {
-				//printf("Img : %d\t%d\n",inp_image[(ty * get_global_size(0) + tx) + (rows * cols * i)],filter_k[findex]);
-			}
 			sum += inp_image[(ty * get_global_size(0) + tx) + (rows * cols * i)] * filter_k[findex]; 
 		}
-		/*if (sum <= 0) {
+		if (sum <= 0) {
 			sum = 0;		
-		}*/
-		/*if (tx == 1 && ty == 1) {
-			printf("op : %u\n", (sum));
-		}*/
+		}
 		output[(ty * get_global_size(0) + tx) + output_shift] = sum;
 		sum = 0;
 	}
