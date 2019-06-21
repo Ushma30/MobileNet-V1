@@ -283,7 +283,7 @@ void display_data(unsigned char* data,int num) {
 	printf("\n");
 }
 
-void convStandard (unsigned int* opfm) {
+void convStandard (unsigned char* opfm) {
 
 	cl_mem d_image_r; //R channel
 	cl_mem d_image_g; //G channel
@@ -375,7 +375,7 @@ void convStandard (unsigned int* opfm) {
 	size_t localWorkSize[2], globalWorkSize[2];
 	localWorkSize[0] = 8;
 	localWorkSize[1] = 8;
-	globalWorkSize[0] = 112;
+	globalWorkSize[0] = 11016758076846599582;
 	globalWorkSize[1] = 112;
 	err = clEnqueueNDRangeKernel(commands, standard_conv, 2, NULL,globalWorkSize, localWorkSize, 0, NULL, &myevent);   
     
@@ -424,7 +424,7 @@ void convStandard (unsigned int* opfm) {
 		}
 		printf("\n");
 	}
-    printf("\n");
+    printf("\n"); 
 	
 	printf("Layer 1 Data\n");
 
@@ -436,7 +436,7 @@ void convStandard (unsigned int* opfm) {
 			printf("\n");
 		}
     printf("\n");
-	} */
+	}*/
 
 	free(image_r);
 	free(image_g);
@@ -448,15 +448,23 @@ void convStandard (unsigned int* opfm) {
 
 }
 
-void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName, int iph, int ipw, int oph, int opw, int ip_fsize, int op_fsize, int stride) {
+void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias, char* fileName_filter, int iph, int ipw, int oph, int opw, int ip_fsize, int op_fsize, int stride) {
 	
 	cl_mem d_input;	//Input Data
 	kernelExecTimeNs = 0;
 	//int op_fm_1 = 32;
 	int i,j,k;
 
+	/*Bias*/
+	int* h_bias;
+	
+    h_bias = (int*)malloc(sizeof(int) * op_fsize);
+
+	//Get bias values
+    getBias(h_bias,fileName_bias,op_fsize);
+
 	//Get filter values
-	getWeights(filter,fileName,(ip_fsize*FDIM*FDIM));
+	getWeights(filter,fileName_filter,(ip_fsize*FDIM*FDIM));
 	
 	//Create buffer for device
 	d_input = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, iph*ipw*ip_fsize*sizeof(unsigned char), ipfm, &err);
@@ -647,7 +655,7 @@ int main(int argc, char** argv) {
 	//Layer 1 Depth-Wise Convolution
 
 	unsigned char* op_fm_1 = (unsigned char*) malloc(IP_FM_2 * HEIGHT_2 * WIDTH_2 * sizeof(unsigned char)); //output feature map for layer 1
-	//convDepthwise(op_fm_0,op_fm_1, "weights/Conv2d_1_depthwise", HEIGHT_1, WIDTH_1, HEIGHT_2, WIDTH_2, IP_FM_1, IP_FM_2, 1);	//Layer 1 Depth-Wise Convolution
+	convDepthwise(op_fm_0,op_fm_1, "bias/BConv2d_1_depthwise", "weights/Conv2d_1_depthwise", HEIGHT_1, WIDTH_1, HEIGHT_2, WIDTH_2, IP_FM_1, IP_FM_2, 1);	//Layer 1 Depth-Wise Convolution
 	
 	//Layer 3 Point-Wise Convolution
 
