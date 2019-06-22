@@ -305,7 +305,7 @@ void convStandard (unsigned char* opfm) {
     getBias(h_bias,"bias/BConv2d_0",IP_FM_1);
 
 	//Read pixel values from input image
-	decode_image(image,"Cat_Image0.ppm"); 
+	decode_image(image,"dog.ppm"); 
 
 	//separate R,G and B pixels
 	seperateChannels(image, image_r, image_g, image_b);
