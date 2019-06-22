@@ -83,19 +83,24 @@ __kernel void convolute(__global unsigned char* output,
 	}
 }
 
-__kernel void depthwise(__global unsigned char* output, __global unsigned char* inp_image, __global unsigned char* filter_k, int rows, int cols, int filtersize, int stride, int op_size ) { 
+__kernel void depthwise(__global unsigned char* output, 
+						__global unsigned char* inp_image, 
+						__global unsigned char* filter_k, 
+						__global int* bias, 
+						int rows, int cols, int filtersize, int stride, int op_size,
+						float M, float Sbias, unsigned char Z2 ) { 
 
 	int tx = get_global_id(0);
 	int ty = get_global_id(1);
 
 	int half_filtersize = (filtersize)/2;
 
-	unsigned int sum = 0;
+	int sum = 0;
 	int xindex=0, yindex=0, findex=0, filter_count=0;
 	int i,j,l;
 	while (filter_count < op_size) {
 		int output_shift = rows * cols * filter_count;
-		filter_count++;	
+		
 		for(i = -half_filtersize; i<= half_filtersize; i++){
 			yindex = ty * stride + i;
 			for(j = -half_filtersize; j<= half_filtersize; j++,findex++){
@@ -104,19 +109,29 @@ __kernel void depthwise(__global unsigned char* output, __global unsigned char* 
 					sum +=  0 * filter_k[findex];
 				}
 				else {
- 					sum +=  inp_image[yindex * get_global_size(0) * stride + xindex] * filter_k[findex];
+ 					sum +=  inp_image[yindex * get_global_size(0) * stride + xindex] * (filter_k[findex] - Z2);
 				}
 			}
 		}
+
+		sum = (int)((M * sum) + (bias[filter_count] * Sbias));
+
 		if (sum <= 0) {
 			sum = 0;		
 		}
+
 		output[(ty * get_global_size(0) + tx) + output_shift] = sum;
 		sum = 0;
+		filter_count++;	
 	}
 }
 
-__kernel void pointwise(__global unsigned char* output, __global unsigned char* inp_image, __global unsigned char* filter_k, int rows, int cols, int filtersize, int op_size ) { 
+__kernel void pointwise(__global unsigned char* output, 
+						__global unsigned char* inp_image, 
+						__global unsigned char* filter_k, 
+						__global int* bias, 
+						int rows, int cols, int filtersize, int op_size,
+						float M, float Sbias, unsigned char Z2 ) {  
 
 	int tx = get_global_id(0);
 	int ty = get_global_id(1);
@@ -126,15 +141,18 @@ __kernel void pointwise(__global unsigned char* output, __global unsigned char* 
 	int i,j,l;
 	while (filter_count < op_size) {
 		int output_shift = rows * cols * filter_count;
-		filter_count++;
 		
 		for (i = 0; i < filtersize; i++,findex++) {
-			sum += inp_image[(ty * get_global_size(0) + tx) + (rows * cols * i)] * filter_k[findex]; 
+			sum += inp_image[(ty * get_global_size(0) + tx) + (rows * cols * i)] * (filter_k[findex] - Z2); 
 		}
+		
+		sum = (int)((M * sum) + (bias[filter_count] * Sbias));
+
 		if (sum <= 0) {
 			sum = 0;		
 		}
 		output[(ty * get_global_size(0) + tx) + output_shift] = sum;
 		sum = 0;
+		filter_count++;
 	}
 }
