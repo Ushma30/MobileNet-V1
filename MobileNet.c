@@ -35,8 +35,9 @@ cl_context context;                 // compute context
 cl_command_queue commands;          // compute command queue
 cl_program program;                 // compute program
 cl_kernel standard_conv;            // compute kernel for standard convolution
-cl_kernel depthwise_conv;            // compute kernel for depthwise convolution
-cl_kernel pointwise_conv;            // compute kernel for pointwise convolution
+cl_kernel depthwise_conv;           // compute kernel for depthwise convolution
+cl_kernel pointwise_conv;           // compute kernel for pointwise convolution
+cl_kernel avgPool;					// compute kernel for average pool
 
 cl_mem d_filter; //filter
 cl_mem d_output; //output image
@@ -188,9 +189,17 @@ int openClCreateKernel() {
 		exit(1);
 	}
 
-	// Create the compute kernel for standard convolution
+	// Create the compute kernel for Pointwise
 	pointwise_conv = clCreateKernel(program, "pointwise", &err);
 	if (!pointwise_conv || err != CL_SUCCESS)
+	{
+		printf("Error: Failed to create compute kernel!\n");
+		exit(1);
+	}
+		
+	// Create the compute kernel for average pool
+	avgPool = clCreateKernel(program, "avgPool", &err);
+	if (!avgPool || err != CL_SUCCESS)
 	{
 		printf("Error: Failed to create compute kernel!\n");
 		exit(1);
@@ -666,6 +675,89 @@ void convPointwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	clReleaseMemObject(d_input);
 }
 
+void convAvgPool(unsigned char* ipfm, unsigned char* opfm,
+				   int iph, int ipw, int oph, int opw, int ip_fsize,
+				   int op_fsize) {
+
+	cl_mem d_input;	//Input Data	
+
+	kernelExecTimeNs = 0;
+	int i,j,k;
+
+	//Create buffer for device
+	d_input = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, iph*ipw*ip_fsize*sizeof(unsigned char), ipfm, &err);
+	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, oph*opw*op_fsize*sizeof(unsigned char), NULL, &err);
+
+	if (!d_input || !d_output )
+	{
+		printf("Error: Failed to allocate device memory!\n");
+		exit(1);
+	}
+	
+	err = clEnqueueWriteBuffer(commands, d_input, CL_TRUE, 0, iph*ipw*ip_fsize*sizeof(unsigned char), ipfm, 0, NULL, NULL);
+
+	if (err != CL_SUCCESS)
+	{
+		printf("Error: Failed to write data to device! %d\n", err);
+		exit(1);
+	}
+ 
+	int rows = iph;
+	int cols = ipw;
+    
+	err = clSetKernelArg(avgPool, 0, sizeof(cl_mem), (void *)&d_output);
+	err |= clSetKernelArg(avgPool, 1, sizeof(cl_mem), (void *)&d_input);
+	err |= clSetKernelArg(avgPool, 2, sizeof(int), (void *)&rows);
+	err |= clSetKernelArg(avgPool, 3, sizeof(int), (void *)&cols);
+	err |= clSetKernelArg(avgPool, 4, sizeof(int), (void *)&op_fsize);
+
+	if (err != CL_SUCCESS)
+	{ 
+		printf("Error: Failed to set kernel arguments! %d\n", err);
+		exit(1);
+	}
+
+	size_t localWorkSize[2], globalWorkSize[2];
+	localWorkSize[0] = 16;
+	globalWorkSize[0] = op_fsize;
+	err = clEnqueueNDRangeKernel(commands, avgPool, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myevent);   
+    
+	if (err != CL_SUCCESS)
+	{
+		printf("Error: Failed to execute kernel! %d\n", err);
+		exit(1);
+	}
+   
+	clWaitForEvents(1,&myevent);	 
+	clFinish(commands);   
+	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_END,sizeof(cl_ulong), &end, NULL);
+	kernelExecTimeNs += end - start;
+	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, op_fsize*oph*opw*sizeof(unsigned char), opfm, 0, NULL, NULL);
+
+	if (err != CL_SUCCESS)
+	{
+		printf("Error: Failed to read output array! %d\n", err);
+		exit(1);
+	}
+
+	//Get kernel execution time
+	printf("Kernel Execution time for Layer 2: %f\n",kernelExecTimeNs/1000000000);
+	/* 
+	printf("Avg pool Layer\n");
+
+	for (k = 0; k < 32; k++){
+		for (j = 0; j < 5; j++){
+			for(i = 0; i < 5; i++){
+				printf("%u\t", opfm[(j*112+i) + k]);
+			}
+			printf("\n");
+		}
+    	printf("\n");
+	}
+	clReleaseMemObject(d_input);
+	*/
+}
 
 //This is the main function
 int main(int argc, char** argv) {
