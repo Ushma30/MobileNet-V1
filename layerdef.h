@@ -411,6 +411,14 @@
 #define SBIAS_26 (S1_1 * S2_1) 
 #define Z2_26 95
 
+/*******************************************************************************
+* Defines - Layer 27 Average Pool - Stride 1                                   *
+*******************************************************************************/
+#define HEIGHT_27 7
+#define WIDTH_27 7
+#define IP_FM_27 1024
+#define OP_FM_27 1024
+
 /* 
 #define FILTER_SIZE_L5 128
 #define FILTER_SIZE_L9 256
