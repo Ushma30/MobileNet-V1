@@ -411,10 +411,13 @@
 #define SBIAS_26 (S1_1 * S2_1) 
 #define Z2_26 95
 
-
 /*******************************************************************************
-* Defines - Layer 27 Avg Pool                                                  *
+* Defines - Layer 27 Average Pool - Stride 1                                   *
 *******************************************************************************/
+#define HEIGHT_27 7
+#define WIDTH_27 7
+#define IP_FM_27 1024
+#define OP_FM_27 1024
 
 /*******************************************************************************
 * Defines - Layer 28 Fully connected Layer                                     *
