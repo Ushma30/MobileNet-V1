@@ -786,6 +786,31 @@ void fullyConectedLayer( unsigned char* ipfm, unsigned char* opfm, char* fileNam
     printf("Layer 29 Fully Connected Done\n");
 }
 
+//Softmax
+void softmax( unsigned char* ipfm)
+{
+    float expo[1000],sum, max, maxIndex;
+    int i,j,jf=0,itr;
+	int temp;
+    for(i=0;i<CLASSES_SOFTMAX;i++)
+    {
+        expo[i] = exp(ipfm[i]);
+        sum += expo[i];
+    }
+    for(i=0;i<CLASSES_SOFTMAX;i++)
+    {
+        expo[i] = expo[i]/sum;
+    }
+	for(i=0;i<CLASSES_SOFTMAX;i++)
+    {
+		if ( expo[i] > max){
+			max = expo[i];
+			maxIndex = i;
+		}	
+    }
+    printf("Layer 30 softmax Done\n");
+	printf("Prediction - %d\t %f\n", maxIndex , max);
+}
 //This is the main function
 int main(int argc, char** argv) {
 
