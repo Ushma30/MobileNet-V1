@@ -29,6 +29,7 @@
 unsigned char image[HEIGHT_0 * WIDTH_0 * FDIM]; //image with 3 input channels
 unsigned char* filter;
 int err;
+int layer_count = 0;
 
 cl_device_id device_id;             // compute device id 
 cl_context context;                 // compute context
@@ -408,7 +409,7 @@ void convStandard (unsigned char* opfm) {
 	}
      
 	//Get kernel execution time
-	printf("Kernel Execution time for Layer 0: %f\n",kernelExecTimeNs/1000000000);
+	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
 
 	/*printf("Image R\n");
 	for (j = 0; j < 10; j++){
@@ -433,7 +434,7 @@ void convStandard (unsigned char* opfm) {
 		}
 		printf("\n");
 	}
-    printf("\n"); */
+    printf("\n"); 
 	
 	printf("Layer 1 Data\n");
 
@@ -445,7 +446,7 @@ void convStandard (unsigned char* opfm) {
 			printf("\n");
 		}
     printf("\n");
-	}
+	} */
 
 	free(image_r);
 	free(image_g);
@@ -549,9 +550,9 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 		exit(1);
 	}
 
-	printf("Kernel Execution time for Layer 1: %f\n",kernelExecTimeNs/1000000000);
+	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
 
-	printf("Data for Layer 2\n");
+	/* printf("Data for Layer 2\n");
 
 	for (k = 0; k < 32; k++){
 		for (j = 0; j < 5; j++){
@@ -561,7 +562,7 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 			printf("\n");
 		}
     	printf("\n");
-	}
+	} */
 	
 	clReleaseMemObject(d_input);
 
@@ -659,9 +660,9 @@ void convPointwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	}
 
 	//Get kernel execution time
-	printf("Kernel Execution time for Layer 2: %f\n",kernelExecTimeNs/1000000000);
+	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
 
-	printf("Data for Layer 3\n");
+	/* printf("Data for Layer 3\n");
 
 	for (k = 0; k < 32; k++){
 		for (j = 0; j < 5; j++){
@@ -671,7 +672,8 @@ void convPointwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 			printf("\n");
 		}
     	printf("\n");
-	}
+	} */
+
 	clReleaseMemObject(d_input);
 }
 
@@ -709,7 +711,6 @@ void convAvgPool(unsigned char* ipfm, unsigned char* opfm,
 	err |= clSetKernelArg(avgPool, 1, sizeof(cl_mem), (void *)&d_input);
 	err |= clSetKernelArg(avgPool, 2, sizeof(int), (void *)&rows);
 	err |= clSetKernelArg(avgPool, 3, sizeof(int), (void *)&cols);
-	err |= clSetKernelArg(avgPool, 4, sizeof(int), (void *)&op_fsize);
 
 	if (err != CL_SUCCESS)
 	{ 
@@ -717,10 +718,10 @@ void convAvgPool(unsigned char* ipfm, unsigned char* opfm,
 		exit(1);
 	}
 
-	size_t localWorkSize[2], globalWorkSize[2];
+	size_t localWorkSize[1], globalWorkSize[1];
 	localWorkSize[0] = 16;
 	globalWorkSize[0] = op_fsize;
-	err = clEnqueueNDRangeKernel(commands, avgPool, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myevent);   
+	err = clEnqueueNDRangeKernel(commands, avgPool, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &myevent);   
     
 	if (err != CL_SUCCESS)
 	{
@@ -742,7 +743,7 @@ void convAvgPool(unsigned char* ipfm, unsigned char* opfm,
 	}
 
 	//Get kernel execution time
-	printf("Kernel Execution time for Layer 2: %f\n",kernelExecTimeNs/1000000000);
+	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
 	/* 
 	printf("Avg pool Layer\n");
 
@@ -825,137 +826,164 @@ int main(int argc, char** argv) {
 	convStandard(op_fm_0); //Layer 0 - Standard Convolution
 	
 	//Layer 1 Depth-Wise Convolution
-
+	
+	layer_count++;
 	unsigned char* op_fm_1 = (unsigned char*) malloc(IP_FM_2 * HEIGHT_2 * WIDTH_2 * sizeof(unsigned char)); //output feature map for layer 1
 	convDepthwise(op_fm_0, op_fm_1, "bias/BConv2d_1_depthwise", "weights/Conv2d_1_depthwise", HEIGHT_1, WIDTH_1, HEIGHT_2, WIDTH_2, IP_FM_1, IP_FM_2, 1, M_1, SBIAS_1, Z2_1);
 	
 	//Layer 2 Point-Wise Convolution
 
+	layer_count++;
 	unsigned char* op_fm_2 = (unsigned char*) malloc(IP_FM_3 * HEIGHT_3 * WIDTH_3 * sizeof(unsigned char));	//output feature map for layer 2
 	convPointwise(op_fm_1, op_fm_2, "bias/BConv2d_1_pointwise", "weights/Conv2d_1_pointwise", HEIGHT_2, WIDTH_2, HEIGHT_3, WIDTH_3, IP_FM_2, IP_FM_3, M_2, SBIAS_2, Z2_2);
 
 	//Layer 3 Depth-Wise Convolution
 
+	layer_count++;
 	unsigned char* op_fm_3 = (unsigned char*) malloc(IP_FM_4 * HEIGHT_4 * WIDTH_4 * sizeof(unsigned char)); //output feature map for layer 3
 	convDepthwise(op_fm_2, op_fm_3, "bias/BConv2d_2_depthwise", "weights/Conv2d_2_depthwise", HEIGHT_3, WIDTH_3, HEIGHT_4, WIDTH_4, IP_FM_3, IP_FM_4, 2, M_3, SBIAS_3, Z2_3);
 
 	//Layer 4 Point-Wise Convolution
 
+	layer_count++;
 	unsigned char* op_fm_4 = (unsigned char*) malloc(IP_FM_5 * HEIGHT_5 * WIDTH_5 * sizeof(unsigned char));	//output feature map for layer 4
 	convPointwise(op_fm_3, op_fm_4, "bias/BConv2d_2_pointwise", "weights/Conv2d_2_pointwise", HEIGHT_4, WIDTH_4, HEIGHT_5, WIDTH_5, IP_FM_4, IP_FM_5, M_4, SBIAS_4, Z2_4);
 
 	//Layer 5 Depth-Wise Convolution
 
+	layer_count++;
 	unsigned char* op_fm_5 = (unsigned char*) malloc(IP_FM_6 * HEIGHT_6 * WIDTH_6 * sizeof(unsigned char)); //output feature map for layer 5
 	convDepthwise(op_fm_4, op_fm_5, "bias/BConv2d_3_depthwise", "weights/Conv2d_3_depthwise", HEIGHT_5, WIDTH_5, HEIGHT_6, WIDTH_6, IP_FM_5, IP_FM_6, 1, M_5, SBIAS_5, Z2_5);
 
 	//Layer 6 Point-Wise Convolution
 
+	layer_count++;
 	unsigned char* op_fm_6 = (unsigned char*) malloc(IP_FM_7 * HEIGHT_7 * WIDTH_7 * sizeof(unsigned char));	//output feature map for layer 6
 	convPointwise(op_fm_5, op_fm_6, "bias/BConv2d_3_pointwise", "weights/Conv2d_3_pointwise", HEIGHT_6, WIDTH_6, HEIGHT_7, WIDTH_7, IP_FM_6, IP_FM_7, M_6, SBIAS_6, Z2_6);
 
 	//Layer 7 Depth-Wise Convolution
 
+	layer_count++;
 	unsigned char* op_fm_7 = (unsigned char*) malloc(IP_FM_8 * HEIGHT_8 * WIDTH_8 * sizeof(unsigned char)); //output feature map for layer 7
 	convDepthwise(op_fm_6, op_fm_7, "bias/BConv2d_4_depthwise", "weights/Conv2d_4_depthwise", HEIGHT_7, WIDTH_7, HEIGHT_8, WIDTH_8, IP_FM_7, IP_FM_8, 2, M_7, SBIAS_7, Z2_7);
 
 	//Layer 8 Point-Wise Convolution
 
+	layer_count++;
 	unsigned char* op_fm_8 = (unsigned char*) malloc(IP_FM_9 * HEIGHT_9 * WIDTH_9 * sizeof(unsigned char));	//output feature map for layer 8
 	convPointwise(op_fm_7, op_fm_8, "bias/BConv2d_4_pointwise", "weights/Conv2d_4_pointwise", HEIGHT_8, WIDTH_8, HEIGHT_9, WIDTH_9, IP_FM_8, IP_FM_9, M_8, SBIAS_8, Z2_8);
 
 	//Layer 9 Depth-Wise Convolution
 
+	layer_count++;
 	unsigned char* op_fm_9 = (unsigned char*) malloc(IP_FM_10 * HEIGHT_10 * WIDTH_10 * sizeof(unsigned char)); //output feature map for layer 9
 	convDepthwise(op_fm_8, op_fm_9, "bias/BConv2d_5_depthwise", "weights/Conv2d_5_depthwise", HEIGHT_9, WIDTH_9, HEIGHT_10, WIDTH_10, IP_FM_9, IP_FM_10, 1, M_9, SBIAS_9, Z2_9);
 
 	//Layer 10 Point-Wise Convolution
 
+	layer_count++;
 	unsigned char* op_fm_10 = (unsigned char*) malloc(IP_FM_11 * HEIGHT_11 * WIDTH_11 * sizeof(unsigned char));	//output feature map for layer 10
 	convPointwise(op_fm_9, op_fm_10, "bias/BConv2d_5_pointwise", "weights/Conv2d_5_pointwise", HEIGHT_10, WIDTH_10, HEIGHT_11, WIDTH_11, IP_FM_10, IP_FM_11, M_10, SBIAS_10, Z2_10);
 
 	//Layer 11 Depth-Wise Convolution
 
+	layer_count++;
 	unsigned char* op_fm_11 = (unsigned char*) malloc(IP_FM_12 * HEIGHT_12 * WIDTH_12 * sizeof(unsigned char)); //output feature map for layer 11
 	convDepthwise(op_fm_10, op_fm_11, "bias/BConv2d_6_depthwise", "weights/Conv2d_6_depthwise", HEIGHT_11, WIDTH_11, HEIGHT_12, WIDTH_12, IP_FM_11, IP_FM_12, 2, M_11, SBIAS_11, Z2_11);
 
 	//Layer 12 Point-Wise Convolution
 
+	layer_count++;
 	unsigned char* op_fm_12 = (unsigned char*) malloc(IP_FM_13 * HEIGHT_13 * WIDTH_13 * sizeof(unsigned char));	//output feature map for layer 12
 	convPointwise(op_fm_11, op_fm_12, "bias/BConv2d_6_pointwise", "weights/Conv2d_6_pointwise", HEIGHT_12, WIDTH_12, HEIGHT_13, WIDTH_13, IP_FM_12, IP_FM_13, M_12, SBIAS_12, Z2_12);
 
 	//Layer 13 Depth-Wise Convolution
 
+	layer_count++;
 	unsigned char* op_fm_13 = (unsigned char*) malloc(IP_FM_14 * HEIGHT_14 * WIDTH_14 * sizeof(unsigned char)); //output feature map for layer 13
 	convDepthwise(op_fm_12, op_fm_13, "bias/BConv2d_7_depthwise", "weights/Conv2d_7_depthwise", HEIGHT_13, WIDTH_13, HEIGHT_14, WIDTH_14, IP_FM_13, IP_FM_14, 1, M_13, SBIAS_13, Z2_13);
 
 	//Layer 14 Point-Wise Convolution
 
+	layer_count++;
 	unsigned char* op_fm_14 = (unsigned char*) malloc(IP_FM_15 * HEIGHT_15 * WIDTH_15 * sizeof(unsigned char));	//output feature map for layer 14
 	convPointwise(op_fm_13, op_fm_14, "bias/BConv2d_7_pointwise", "weights/Conv2d_7_pointwise", HEIGHT_14, WIDTH_14, HEIGHT_15, WIDTH_15, IP_FM_14, IP_FM_15, M_14, SBIAS_14, Z2_14);
 
 	//Layer 15 Depth-Wise Convolution
 
+	layer_count++;
 	unsigned char* op_fm_15 = (unsigned char*) malloc(IP_FM_16 * HEIGHT_16 * WIDTH_16 * sizeof(unsigned char)); //output feature map for layer 15
 	convDepthwise(op_fm_14, op_fm_15, "bias/BConv2d_8_depthwise", "weights/Conv2d_8_depthwise", HEIGHT_15, WIDTH_15, HEIGHT_16, WIDTH_16, IP_FM_15, IP_FM_16, 1, M_15, SBIAS_15, Z2_15);
 
 	//Layer 16 Point-Wise Convolution
 
+	layer_count++;
 	unsigned char* op_fm_16 = (unsigned char*) malloc(IP_FM_17 * HEIGHT_17 * WIDTH_17 * sizeof(unsigned char));	//output feature map for layer 16
 	convPointwise(op_fm_15, op_fm_16, "bias/BConv2d_8_pointwise", "weights/Conv2d_8_pointwise", HEIGHT_16, WIDTH_16, HEIGHT_17, WIDTH_17, IP_FM_16, IP_FM_17, M_16, SBIAS_16, Z2_16);
 
 	//Layer 17 Depth-Wise Convolution
 
+	layer_count++;
 	unsigned char* op_fm_17 = (unsigned char*) malloc(IP_FM_18 * HEIGHT_18 * WIDTH_18 * sizeof(unsigned char)); //output feature map for layer 17
 	convDepthwise(op_fm_16, op_fm_17, "bias/BConv2d_9_depthwise", "weights/Conv2d_9_depthwise", HEIGHT_17, WIDTH_17, HEIGHT_18, WIDTH_18, IP_FM_17, IP_FM_18, 1, M_17, SBIAS_17, Z2_17);
 
 	//Layer 18 Point-Wise Convolution
 
+	layer_count++;
 	unsigned char* op_fm_18 = (unsigned char*) malloc(IP_FM_19 * HEIGHT_19 * WIDTH_19 * sizeof(unsigned char));	//output feature map for layer 18
 	convPointwise(op_fm_17, op_fm_18, "bias/BConv2d_9_pointwise", "weights/Conv2d_9_pointwise", HEIGHT_18, WIDTH_18, HEIGHT_19, WIDTH_19, IP_FM_18, IP_FM_19, M_18, SBIAS_18, Z2_18);
 
 	//Layer 19 Depth-Wise Convolution
 
+	layer_count++;
 	unsigned char* op_fm_19 = (unsigned char*) malloc(IP_FM_20 * HEIGHT_20 * WIDTH_20 * sizeof(unsigned char)); //output feature map for layer 19
 	convDepthwise(op_fm_18, op_fm_19, "bias/BConv2d_10_depthwise", "weights/Conv2d_10_depthwise", HEIGHT_19, WIDTH_19, HEIGHT_20, WIDTH_20, IP_FM_19, IP_FM_20, 1, M_19, SBIAS_19, Z2_19);
 
 	//Layer 20 Point-Wise Convolution
 
+	layer_count++;
 	unsigned char* op_fm_20 = (unsigned char*) malloc(IP_FM_21 * HEIGHT_21 * WIDTH_21 * sizeof(unsigned char));	//output feature map for layer 20
 	convPointwise(op_fm_19, op_fm_20, "bias/BConv2d_10_pointwise", "weights/Conv2d_10_pointwise", HEIGHT_20, WIDTH_20, HEIGHT_21, WIDTH_21, IP_FM_20, IP_FM_21, M_20, SBIAS_20, Z2_20);
 
 	//Layer 21 Depth-Wise Convolution
 
+	layer_count++;
 	unsigned char* op_fm_21 = (unsigned char*) malloc(IP_FM_22 * HEIGHT_22 * WIDTH_22 * sizeof(unsigned char)); //output feature map for layer 21
 	convDepthwise(op_fm_20, op_fm_21, "bias/BConv2d_11_depthwise", "weights/Conv2d_11_depthwise", HEIGHT_21, WIDTH_21, HEIGHT_22, WIDTH_22, IP_FM_21, IP_FM_22, 1, M_21, SBIAS_21, Z2_21);
 
 	//Layer 22 Point-Wise Convolution
 
+	layer_count++;
 	unsigned char* op_fm_22 = (unsigned char*) malloc(IP_FM_23 * HEIGHT_23 * WIDTH_23 * sizeof(unsigned char));	//output feature map for layer 22
 	convPointwise(op_fm_21, op_fm_22, "bias/BConv2d_11_pointwise", "weights/Conv2d_11_pointwise", HEIGHT_22, WIDTH_22, HEIGHT_23, WIDTH_23, IP_FM_22, IP_FM_23, M_22, SBIAS_22, Z2_22);
 
 	//Layer 23 Depth-Wise Convolution
 
+	layer_count++;
 	unsigned char* op_fm_23 = (unsigned char*) malloc(IP_FM_24 * HEIGHT_24 * WIDTH_24 * sizeof(unsigned char)); //output feature map for layer 23
 	convDepthwise(op_fm_22, op_fm_23, "bias/BConv2d_12_depthwise", "weights/Conv2d_12_depthwise", HEIGHT_23, WIDTH_23, HEIGHT_24, WIDTH_24, IP_FM_23, IP_FM_24, 2, M_23, SBIAS_23, Z2_23);
 
 	//Layer 24 Point-Wise Convolution
 
+	layer_count++;
 	unsigned char* op_fm_24 = (unsigned char*) malloc(IP_FM_25 * HEIGHT_25 * WIDTH_25 * sizeof(unsigned char));	//output feature map for layer 24
 	convPointwise(op_fm_23, op_fm_24, "bias/BConv2d_12_pointwise", "weights/Conv2d_12_pointwise", HEIGHT_24, WIDTH_24, HEIGHT_25, WIDTH_25, IP_FM_24, IP_FM_25, M_24, SBIAS_24, Z2_24);
 
 	//Layer 25 Depth-Wise Convolution
 
+	layer_count++;
 	unsigned char* op_fm_25 = (unsigned char*) malloc(IP_FM_26 * HEIGHT_26 * WIDTH_26 * sizeof(unsigned char)); //output feature map for layer 25
 	convDepthwise(op_fm_24, op_fm_25, "bias/BConv2d_13_depthwise", "weights/Conv2d_13_depthwise", HEIGHT_25, WIDTH_25, HEIGHT_26, WIDTH_26, IP_FM_25, IP_FM_26, 2, M_25, SBIAS_25, Z2_25);
 
 	//Layer 26 Point-Wise Convolution
 
+	layer_count++;
 	unsigned char* op_fm_26 = (unsigned char*) malloc(IP_FM_27 * HEIGHT_27 * WIDTH_27 * sizeof(unsigned char));	//output feature map for layer 26
 	convPointwise(op_fm_25, op_fm_26, "bias/BConv2d_13_pointwise", "weights/Conv2d_13_pointwise", HEIGHT_26, WIDTH_26, HEIGHT_27, WIDTH_27, IP_FM_26, IP_FM_27, M_26, SBIAS_26, Z2_26);
 
 	//Layer 27 Average Pool
 
+	layer_count++;
 	unsigned char* op_fm_27 = (unsigned char*) malloc(ELEMENTS * HEIGHT_28 * WIDTH_28 * sizeof(unsigned char));	//output feature map for layer 27
 	convAvgPool(op_fm_26, op_fm_27, HEIGHT_27, WIDTH_27, HEIGHT_28, WIDTH_28, IP_FM_27, ELEMENTS);
 

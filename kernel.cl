@@ -158,15 +158,15 @@ __kernel void pointwise(__global unsigned char* output,
 }
 __kernel void avgPool(__global unsigned char* output, 
 					  __global unsigned char* inp_image, 
-					  int rows, int cols, int op_size ) {
+					  int rows, int cols ) {
 
         int tx = get_global_id(0);
         int sum = 0;
-        int poolCnt=0;
-        int i,j,l;
+        int i;
 	    int input_shift = rows * cols;
 		for (i = 0; i < rows * cols; i++) {
 			sum += inp_image[i + ( tx * input_shift)];
 		}
 		output[tx] = sum / 49;
+		sum = 0;
 }
