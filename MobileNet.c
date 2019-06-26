@@ -759,19 +759,29 @@ void convAvgPool(unsigned char* ipfm, unsigned char* opfm,
 	*/
 }
 
-void fullyConectedLayer( unsigned char* ipfm, unsigned char* opfm, char* fileName_filter , int channels , int elements)
+void fullyConectedLayer( unsigned char* ipfm, unsigned char* opfm, char* fileName_bias , char* fileName_filter , int channels , int elements)
 {   
     int i,j,jf=0,itr;
     int fcVar;
-    //filter29[0]=1;
+	int sum;
+	/*Bias*/
+	int* h_bias;
+	
+    h_bias = (int*)malloc(sizeof(int) * channels);
+
+	//Get bias values
+    getBias(h_bias,fileName_bias,channels);
+
 	//Get filter values
 	getWeights(filter,fileName_filter,(channels*elements));
+
     for(i=0;i<CLASSES;i++)
     {
         for(j=0;j<ELEMENTS;j++)
         {
-            opfm[i]+=ipfm[j]*filter[j];
+            sum+=ipfm[j]*(filter[j] - Z2_28);
         }
+		opfm[i] = (int)((M_28 * sum) + (h_bias[i] * SBIAS_28));
     }
     printf("Layer 29 Fully Connected Done\n");
 }

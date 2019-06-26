@@ -424,7 +424,12 @@
 *******************************************************************************/
 #define ELEMENTS 1024
 #define CLASSES 1000
-
+#define S1_28 0.023528477177023888
+#define S2_28 0.004986600950360298
+#define S3_28 0.16609922051429749
+#define M_28 ((S1_28 * S2_28) / S3_28)
+#define SBIAS_28 (S1_28 * S2_28) 
+#define Z2_28 74
 /* 
 #define FILTER_SIZE_L5 128
 #define FILTER_SIZE_L9 256
