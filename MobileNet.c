@@ -524,8 +524,8 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	}
 
 	size_t localWorkSize[2], globalWorkSize[2];
-	localWorkSize[0] = 8;
-	localWorkSize[1] = 8;
+	localWorkSize[0] = 1;
+	localWorkSize[1] = 1;
 	globalWorkSize[0] = opw;
 	globalWorkSize[1] = oph;
 	err = clEnqueueNDRangeKernel(commands, depthwise_conv, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myevent);   
@@ -633,8 +633,8 @@ void convPointwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	}
 
 	size_t localWorkSize[2], globalWorkSize[2];
-	localWorkSize[0] = 8;
-	localWorkSize[1] = 8;
+	localWorkSize[0] = 1;
+	localWorkSize[1] = 1;
 	globalWorkSize[0] = opw;
 	globalWorkSize[1] = oph;
 	err = clEnqueueNDRangeKernel(commands, pointwise_conv, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myevent);   
@@ -919,6 +919,11 @@ int main(int argc, char** argv) {
 	unsigned char* op_fm_26 = (unsigned char*) malloc(IP_FM_27 * HEIGHT_27 * WIDTH_27 * sizeof(unsigned char));	//output feature map for layer 26
 	convPointwise(op_fm_25, op_fm_26, "bias/BConv2d_13_pointwise", "weights/Conv2d_13_pointwise", HEIGHT_26, WIDTH_26, HEIGHT_27, WIDTH_27, IP_FM_26, IP_FM_27, M_26, SBIAS_26, Z2_26);
 
+	//Layer 27 Average Pool
+
+	unsigned char* op_fm_27 = (unsigned char*) malloc(ELEMENTS * HEIGHT_28 * WIDTH_28 * sizeof(unsigned char));	//output feature map for layer 27
+	convAvgPool(op_fm_26, op_fm_27, HEIGHT_27, WIDTH_27, HEIGHT_28, WIDTH_28, IP_FM_27, ELEMENTS);
+
 	//Shutdown and cleanup
 	free(filter);
 	free(op_fm_0);	free(op_fm_1);	free(op_fm_2);	free(op_fm_3);
@@ -927,7 +932,7 @@ int main(int argc, char** argv) {
 	free(op_fm_12);	free(op_fm_13);	free(op_fm_14);	free(op_fm_15);
 	free(op_fm_16);	free(op_fm_17);	free(op_fm_18);	free(op_fm_19);
 	free(op_fm_20);	free(op_fm_21);	free(op_fm_22);	free(op_fm_23);
-	free(op_fm_24);	free(op_fm_25);	free(op_fm_26);
+	free(op_fm_24);	free(op_fm_25);	free(op_fm_26);	free(op_fm_27);
 	clReleaseMemObject(d_output);
 	clReleaseMemObject(d_filter);
 	clReleaseProgram(program);
