@@ -168,5 +168,4 @@ __kernel void avgPool(__global unsigned char* output,
 			sum += inp_image[i + ( tx * input_shift)];
 		}
 		output[tx] = sum / 49;
-		sum = 0;
 }

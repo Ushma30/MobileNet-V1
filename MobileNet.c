@@ -790,7 +790,8 @@ void fullyConectedLayer( unsigned char* ipfm, unsigned char* opfm, char* fileNam
 //Softmax
 void softmax( unsigned char* ipfm)
 {
-    float expo[1000],sum, max, maxIndex;
+    float expo[1000],sum, max;
+	int maxIndex;
     int i,j,jf=0,itr;
 	int temp;
     for(i=0;i<CLASSES_SOFTMAX;i++)
@@ -987,6 +988,17 @@ int main(int argc, char** argv) {
 	unsigned char* op_fm_27 = (unsigned char*) malloc(ELEMENTS * HEIGHT_28 * WIDTH_28 * sizeof(unsigned char));	//output feature map for layer 27
 	convAvgPool(op_fm_26, op_fm_27, HEIGHT_27, WIDTH_27, HEIGHT_28, WIDTH_28, IP_FM_27, ELEMENTS);
 
+	//Layer 28 Fully COnnected
+
+	layer_count++;
+	unsigned char* op_fm_28 = (unsigned char*) malloc(CLASSES_SOFTMAX * HEIGHT_29 * WIDTH_29 * sizeof(unsigned char));	//output feature map for layer 28
+	fullyConectedLayer(op_fm_27, op_fm_28, "bias/BConv2d_fullyconnected", "weights/Conv2d_fullyconnected", CLASSES, ELEMENTS);
+
+	//Layer 29 Softmax
+
+	layer_count++;
+	softmax(op_fm_28);
+
 	//Shutdown and cleanup
 	free(filter);
 	free(op_fm_0);	free(op_fm_1);	free(op_fm_2);	free(op_fm_3);
@@ -996,6 +1008,7 @@ int main(int argc, char** argv) {
 	free(op_fm_16);	free(op_fm_17);	free(op_fm_18);	free(op_fm_19);
 	free(op_fm_20);	free(op_fm_21);	free(op_fm_22);	free(op_fm_23);
 	free(op_fm_24);	free(op_fm_25);	free(op_fm_26);	free(op_fm_27);
+	free(op_fm_28);
 	clReleaseMemObject(d_output);
 	clReleaseMemObject(d_filter);
 	clReleaseProgram(program);
