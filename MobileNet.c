@@ -759,6 +759,23 @@ void convAvgPool(unsigned char* ipfm, unsigned char* opfm,
 	*/
 }
 
+void fullyConectedLayer( unsigned char* ipfm, unsigned char* opfm, char* fileName_filter , int channels , int elements)
+{   
+    int i,j,jf=0,itr;
+    int fcVar;
+    //filter29[0]=1;
+	//Get filter values
+	getWeights(filter,fileName_filter,(channels*elements));
+    for(i=0;i<CLASSES;i++)
+    {
+        for(j=0;j<ELEMENTS;j++)
+        {
+            opfm[i]+=ipfm[j]*filter[j];
+        }
+    }
+    printf("Layer 29 Fully Connected Done\n");
+}
+
 //This is the main function
 int main(int argc, char** argv) {
 
