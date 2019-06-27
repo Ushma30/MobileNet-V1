@@ -247,7 +247,7 @@ void getWeights(unsigned char* f, char filename[], int size)
     FILE *latfile;
     latfile=fopen(filename,"r");
     /* 80 is the offset of numpy array file*/
-    fseek(latfile, 80, SEEK_SET);
+    fseek(latfile, 0, SEEK_SET);
     fread(f,sizeof(unsigned char),size,latfile);
     fclose(latfile);
 }
@@ -315,7 +315,7 @@ void convStandard (unsigned char* opfm) {
     getBias(h_bias,"bias/BConv2d_0",IP_FM_1);
 
 	//Read pixel values from input image
-	decode_image(image,"dog.ppm"); 
+	decode_image(image,"tiger.ppm"); 
 
 	//separate R,G and B pixels
 	seperateChannels(image, image_r, image_g, image_b);
@@ -327,7 +327,7 @@ void convStandard (unsigned char* opfm) {
 	d_image_r = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_r, &err);
 	d_image_g = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_g, &err);
 	d_image_b = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_b, &err);
-	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, (HEIGHT_1)*(WIDTH_1)*IP_FM_0*sizeof(unsigned int), NULL, &err);
+	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, (HEIGHT_1)*(WIDTH_1)*IP_FM_1*sizeof(unsigned char), NULL, &err);
 	d_filter = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, IP_FM_1*FDIM*FDIM*FDIM*sizeof(unsigned char), filter, &err);
 	d_bias = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, IP_FM_1*sizeof(int), h_bias, &err);
 
@@ -400,7 +400,7 @@ void convStandard (unsigned char* opfm) {
 	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
 	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_END,sizeof(cl_ulong), &end, NULL);
 	kernelExecTimeNs += end - start;
-	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, IP_FM_0*(HEIGHT_1)*(WIDTH_1)*sizeof(unsigned int), opfm, 0, NULL, NULL);
+	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, IP_FM_1*(HEIGHT_1)*(WIDTH_1)*sizeof(unsigned char), opfm, 0, NULL, NULL);
 
 	if (err != CL_SUCCESS)
 	{
@@ -411,43 +411,18 @@ void convStandard (unsigned char* opfm) {
 	//Get kernel execution time
 	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
 
-	/*printf("Image R\n");
-	for (j = 0; j < 10; j++){
-		for(i = 0; i < 10; i++){
-			printf("%d\t", image_r[j*224+i]);
-		}
-		printf("\n");
-	}
-	printf("\n");
-	printf("Image G\n");
-	for (j = 0; j < 10; j++){
-		for(i = 0; i < 10; i++){
-			printf("%d\t", image_g[j*224+i]);
-		}
-		printf("\n");
-	}
-	printf("\n");
-	printf("Image B\n");
-	for (j = 0; j < 10; j++){
-		for(i = 0; i < 10; i++){
-			printf("%d\t", image_b[j*224+i]);
-		}
-		printf("\n");
-	}
-    printf("\n"); 
-	
-	printf("Layer 1 Data\n");
-
+	printf("Data for Layer %d\n", layer_count);
+/* 
 	for (k = 0; k < 32; k++){
-		for (j = 0; j < 5; j++){
-			for(i = 0; i < 5; i++){
-				printf("%u\t", opfm[(j*112+i) + k]);
+		for (j = 0; j < 20; j++){
+			for(i = 0; i < 20; i++){
+				printf("%d\t", opfm[(j*112+i) + (k*112*112)]);
 			}
 			printf("\n");
 		}
     printf("\n");
-	} */
-
+	}	
+*/
 	free(image_r);
 	free(image_g);
 	free(image_b);
@@ -552,7 +527,7 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 
 	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
 
-	/* printf("Data for Layer 2\n");
+	/*	printf("Data for Layer %d\n", layer_count);
 
 	for (k = 0; k < 32; k++){
 		for (j = 0; j < 5; j++){
@@ -662,7 +637,7 @@ void convPointwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	//Get kernel execution time
 	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
 
-	/* printf("Data for Layer 3\n");
+	/* printf("Data for Layer %d\n", layer_count);
 
 	for (k = 0; k < 32; k++){
 		for (j = 0; j < 5; j++){
@@ -744,8 +719,8 @@ void convAvgPool(unsigned char* ipfm, unsigned char* opfm,
 
 	//Get kernel execution time
 	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
-	/* 
-	printf("Avg pool Layer\n");
+	 
+	/* printf("Avg pool Layer\n");
 
 	for (k = 0; k < 32; k++){
 		for (j = 0; j < 5; j++){
@@ -755,55 +730,59 @@ void convAvgPool(unsigned char* ipfm, unsigned char* opfm,
 			printf("\n");
 		}
     	printf("\n");
-	}
+	}	*/
 	clReleaseMemObject(d_input);
-	*/
 }
 
-void fullyConectedLayer( unsigned char* ipfm, unsigned char* opfm, char* fileName_bias , char* fileName_filter , int channels , int elements)
+void fullyConectedLayer( unsigned char* ipfm, unsigned char* opfm, char* fileName_bias , char* fileName_filter , int classes , int elements)
 {   
     int i,j,jf=0,itr;
-    int fcVar;
-	int sum;
+	int sum = 0;
 	/*Bias*/
 	int* h_bias;
 	
-    h_bias = (int*)malloc(sizeof(int) * channels);
+    h_bias = (int*)malloc(sizeof(int) * classes);
 
 	//Get bias values
-    getBias(h_bias,fileName_bias,channels);
+    getBias(h_bias,fileName_bias, classes);
 
 	//Get filter values
-	getWeights(filter,fileName_filter,(channels*elements));
+	getWeights(filter, fileName_filter, (classes * elements));
 
-    for(i=0;i<CLASSES;i++)
+    for(i = 0; i < CLASSES; i++)
     {
-        for(j=0;j<ELEMENTS;j++)
+        for(j = 0; j < ELEMENTS; j++)
         {
-            sum+=ipfm[j]*(filter[j] - Z2_28);
+            sum += (ipfm[j] * (filter[j] - Z2_28));
+			// if (j == 0)
+			// 	printf("ip %d + fil %d = sum %d \n", ipfm[j],(filter[j] - Z2_28), sum );
         }
 		opfm[i] = (int)((M_28 * sum) + (h_bias[i] * SBIAS_28));
+		sum = 0;
     }
     printf("Layer 29 Fully Connected Done\n");
 }
 
 //Softmax
-void softmax( unsigned char* ipfm)
+void softmax (unsigned char* ipfm)
 {
-    float expo[1000],sum, max;
+    double expo[1000], sum, max = 0.0;
 	int maxIndex;
-    int i,j,jf=0,itr;
+    int i,j;
 	int temp;
-    for(i=0;i<CLASSES_SOFTMAX;i++)
+	printf("SOFTMAX OP: ");
+    for(i = 0; i < CLASSES_SOFTMAX; i++)
     {
         expo[i] = exp(ipfm[i]);
         sum += expo[i];
+		printf("i = %d \t ipfm %d %f\n", i,ipfm[i],expo[i]);
     }
-    for(i=0;i<CLASSES_SOFTMAX;i++)
+    for(i = 0; i < CLASSES_SOFTMAX; i++)
     {
-        expo[i] = expo[i]/sum;
+		expo[i] = expo[i] / sum;
+		//printf("%f\t", expo[i]);
     }
-	for(i=0;i<CLASSES_SOFTMAX;i++)
+	for(i = 0; i < CLASSES_SOFTMAX; i++)
     {
 		if ( expo[i] > max){
 			max = expo[i];
@@ -831,12 +810,15 @@ int main(int argc, char** argv) {
 	layer_count++;
 	unsigned char* op_fm_1 = (unsigned char*) malloc(IP_FM_2 * HEIGHT_2 * WIDTH_2 * sizeof(unsigned char)); //output feature map for layer 1
 	convDepthwise(op_fm_0, op_fm_1, "bias/BConv2d_1_depthwise", "weights/Conv2d_1_depthwise", HEIGHT_1, WIDTH_1, HEIGHT_2, WIDTH_2, IP_FM_1, IP_FM_2, 1, M_1, SBIAS_1, Z2_1);
+
+
 	
 	//Layer 2 Point-Wise Convolution
 
 	layer_count++;
 	unsigned char* op_fm_2 = (unsigned char*) malloc(IP_FM_3 * HEIGHT_3 * WIDTH_3 * sizeof(unsigned char));	//output feature map for layer 2
 	convPointwise(op_fm_1, op_fm_2, "bias/BConv2d_1_pointwise", "weights/Conv2d_1_pointwise", HEIGHT_2, WIDTH_2, HEIGHT_3, WIDTH_3, IP_FM_2, IP_FM_3, M_2, SBIAS_2, Z2_2);
+
 
 	//Layer 3 Depth-Wise Convolution
 
@@ -981,18 +963,35 @@ int main(int argc, char** argv) {
 	layer_count++;
 	unsigned char* op_fm_26 = (unsigned char*) malloc(IP_FM_27 * HEIGHT_27 * WIDTH_27 * sizeof(unsigned char));	//output feature map for layer 26
 	convPointwise(op_fm_25, op_fm_26, "bias/BConv2d_13_pointwise", "weights/Conv2d_13_pointwise", HEIGHT_26, WIDTH_26, HEIGHT_27, WIDTH_27, IP_FM_26, IP_FM_27, M_26, SBIAS_26, Z2_26);
-
+	
 	//Layer 27 Average Pool
 
 	layer_count++;
 	unsigned char* op_fm_27 = (unsigned char*) malloc(ELEMENTS * HEIGHT_28 * WIDTH_28 * sizeof(unsigned char));	//output feature map for layer 27
 	convAvgPool(op_fm_26, op_fm_27, HEIGHT_27, WIDTH_27, HEIGHT_28, WIDTH_28, IP_FM_27, ELEMENTS);
-
+for (k = 0; k < ELEMENTS; k++){
+		for (j = 0; j < 1; j++){
+			for(i = 0; i < 1; i++){
+				printf("%d\t", op_fm_27[(j*WIDTH_28+i) + (k*HEIGHT_28*WIDTH_28)]);
+			}
+			//printf("\n");
+		}
+    //printf("\n");
+	} 
 	//Layer 28 Fully COnnected
-
+printf("\n");
 	layer_count++;
 	unsigned char* op_fm_28 = (unsigned char*) malloc(CLASSES_SOFTMAX * HEIGHT_29 * WIDTH_29 * sizeof(unsigned char));	//output feature map for layer 28
 	fullyConectedLayer(op_fm_27, op_fm_28, "bias/BConv2d_fullyconnected", "weights/Conv2d_fullyconnected", CLASSES, ELEMENTS);
+	for (k = 0; k < CLASSES; k++){
+		for (j = 0; j < 1; j++){
+			for(i = 0; i < 1; i++){
+				printf("%d\t", op_fm_28[(j*WIDTH_28+i) + (k*HEIGHT_28*WIDTH_28)]);
+			}
+			//printf("\n");
+		}
+    //printf("\n");
+	} 
 
 	//Layer 29 Softmax
 
