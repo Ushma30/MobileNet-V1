@@ -437,6 +437,9 @@ void convDepthwise(float* ipfm, float* opfm, char* fileName_bias,
 
 	//Get filter values
 	getWeights(filter,fileName_filter,(op_fsize*FDIM*FDIM));
+
+	//reaarange weights in proper format
+	arrangWeightsDepthwise(filter, filter_proper, 32);
 	
 	//Create buffer for device
 	d_input = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, iph*ipw*ip_fsize*sizeof(float), ipfm, &err);
@@ -806,13 +809,8 @@ void arrangWeightsDepthwise(float* ip, float* op, int fsize)
     {
         for(ele_per_filter=0;ele_per_filter<9;ele_per_filter++,i++)
         {
-            op[i]=ip[0+(ele_per_filter*(fsize*2))+nof];   
+            op[i]=ip[0+(ele_per_filter*(fsize))+nof];   
         }
-        for(ele_per_filter=0;ele_per_filter<9;ele_per_filter++,i++)
-        {
-            op[i]=ip[32+(ele_per_filter*(fsize*2))+nof];
-        }
-
     }
 }
 
