@@ -55,7 +55,7 @@ int decode_image(unsigned char frame[HEIGHT_0 * WIDTH_0 * FDIM], char filename[]
 void getBias(float* f, char filename[], int size);
 void getWeights(float* aryWeight, char filename[], int size);
 void arrangWeights(float* ip, float* op);
-
+void arrangWeightsDepthwise(float* ip, float* op, int fsize);
 long LoadOpenCLKernel(char const* path, char **buf)
 {
 	FILE  *fp;
@@ -798,6 +798,24 @@ void arrangWeights(float* ip, float* op)
     }
 
 }
+
+void arrangWeightsDepthwise(float* ip, float* op, int fsize)
+{
+    int nof, channel,ele_per_filter,i=0;
+    for (nof=0; nof<fsize; nof++)
+    {
+        for(ele_per_filter=0;ele_per_filter<9;ele_per_filter++,i++)
+        {
+            op[i]=ip[0+(ele_per_filter*(fsize*2))+nof];   
+        }
+        for(ele_per_filter=0;ele_per_filter<9;ele_per_filter++,i++)
+        {
+            op[i]=ip[32+(ele_per_filter*(fsize*2))+nof];
+        }
+
+    }
+}
+
 //This is the main function
 int main(int argc, char** argv) {
 
