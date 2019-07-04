@@ -25,9 +25,9 @@
 #include <stdbool.h>
 #include "layerdef.h"
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
-
+#define NPY_COMMON_HEADER_OFFSET		10 //offset to the Size of Header in npy file (npy - numpy array file) 
 unsigned char image[HEIGHT_0 * WIDTH_0 * FDIM]; //image with 3 input channels
-unsigned char* filter;
+float* filter;
 int err;
 int layer_count = 0;
 
@@ -52,6 +52,7 @@ cl_platform_id platform_ids[100];
 
 int decode_image(unsigned char frame[HEIGHT_0 * WIDTH_0 * FDIM], char filename[]);
 void getBias(int* f, char filename[], int size);
+void getWeights(float* aryWeight, char filename[], int size);
 
 long LoadOpenCLKernel(char const* path, char **buf)
 {
@@ -236,20 +237,23 @@ void readSquezeNetKernel(unsigned char *m, int read_size)
 /**
  * @brief  Get the weights from the numpy array file
  * @author  Kausutbh
- * @date June 7, 2019
- * @param 1. unsigned char* f : variable to put weights into
+ * @date July 4, 2019
+ * @param 1. float* f : variable to put weights into
  *        2. char filename[] : File name of the weights filename
  *        3. int size
  * @return None
  */
-void getWeights(unsigned char* f, char filename[], int size)
+void getWeights(float* aryWeight, char filename[], int size)
 {
-    FILE *latfile;
-    latfile=fopen(filename,"r");
-    /* 80 is the offset of numpy array file*/
-    fseek(latfile, 0, SEEK_SET);
-    fread(f,sizeof(unsigned char),size,latfile);
-    fclose(latfile);
+    FILE *npyfile;
+    uint16_t headerOffset;  
+	npyfile=fopen(filename,"r");
+    fseek(npyfile, 8, SEEK_SET);
+    fread(&headerOffset,sizeof(uint16_t),1,npyfile);
+    //printf("shift headerOffset - %d \n", headerOffset);    
+    fseek(npyfile, ( headerOffset + NPY_COMMON_HEADER_OFFSET ), SEEK_SET);
+    fread(aryWeight,sizeof(unsigned char),size,npyfile);
+    fclose(npyfile);
 }
 /**
  * @brief  Get the bias from the numpy array file
@@ -312,16 +316,16 @@ void convStandard (unsigned char* opfm) {
     h_bias = (int*)malloc(sizeof(int) * IP_FM_1);
 
 	//Get bias values
-    getBias(h_bias,"bias/BConv2d_0",IP_FM_1);
+    //getBias(h_bias,"bias/BConv2d_0",IP_FM_1);
 
 	//Read pixel values from input image
-	decode_image(image,"tiger.ppm"); 
+	decode_image(image,"testData/tiger.ppm"); 
 
 	//separate R,G and B pixels
 	seperateChannels(image, image_r, image_g, image_b);
 
 	//Get filter values
-    getWeights(filter,"weights/Conv2d_0",(IP_FM_1*FDIM*FDIM*FDIM));
+    getWeights(filter,"weights_float/conv1_kernel_0",(IP_FM_1*FDIM*FDIM*FDIM));
 
 	//Create buffer for device
 	d_image_r = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_r, &err);
@@ -412,7 +416,7 @@ void convStandard (unsigned char* opfm) {
 	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
 
 	printf("Data for Layer %d\n", layer_count);
-/* 
+	/* 
 	for (k = 0; k < 32; k++){
 		for (j = 0; j < 20; j++){
 			for(i = 0; i < 20; i++){
@@ -422,7 +426,7 @@ void convStandard (unsigned char* opfm) {
 		}
     printf("\n");
 	}	
-*/
+	*/
 	free(image_r);
 	free(image_g);
 	free(image_b);
@@ -796,7 +800,7 @@ void softmax (unsigned char* ipfm)
 int main(int argc, char** argv) {
 
     
-	filter = (unsigned char*) malloc(FILTER_MAX*FILTER_MAX*FDIM*FDIM*FDIM*sizeof(unsigned char));
+	filter = (float*) malloc(FILTER_MAX*FILTER_MAX*FDIM*FDIM*FDIM*sizeof(float));
 	unsigned char* op_fm_0 = (unsigned char*) malloc(IP_FM_1 * HEIGHT_1 * WIDTH_1 * sizeof(unsigned char)); //output feature map for layer 0
 	int i,j,k;
 
