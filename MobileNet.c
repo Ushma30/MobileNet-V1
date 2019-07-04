@@ -27,7 +27,7 @@
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 
 unsigned char image[HEIGHT_0 * WIDTH_0 * FDIM]; //image with 3 input channels
-unsigned char* filter;
+float* filter;
 int err;
 int layer_count = 0;
 
@@ -40,18 +40,18 @@ cl_kernel depthwise_conv;           // compute kernel for depthwise convolution
 cl_kernel pointwise_conv;           // compute kernel for pointwise convolution
 cl_kernel avgPool;					// compute kernel for average pool
 
-cl_mem d_filter; //filter
-cl_mem d_output; //output image
-cl_event myevent; //profiling event
-cl_ulong start; //time start
-cl_ulong end; //time stop
+cl_mem d_filter; 					//filter
+cl_mem d_output; 					//output image
+cl_event myevent; 					//profiling event
+cl_ulong start; 					//time start
+cl_ulong end; 						//time stop
 cl_float kernelExecTimeNs;
 cl_uint dev_cnt = 0;
 cl_platform_id platform_ids[100];
 
 
 int decode_image(unsigned char frame[HEIGHT_0 * WIDTH_0 * FDIM], char filename[]);
-void getBias(int* f, char filename[], int size);
+void getBias(float* f, char filename[], int size);
 
 long LoadOpenCLKernel(char const* path, char **buf)
 {
@@ -216,39 +216,22 @@ void seperateChannels(unsigned char* imd,unsigned char* im1,unsigned char* im2,u
     }
 }
 
-void readSquezeNetKernel(unsigned char *m, int read_size) 
-{
-
-	FILE *fp;	
-	char buff[255];
-	double n;
-	fp = fopen("weight.txt", "r");
-	//int sizeInt = K * K * K * 32 *sizeof(int);
-	int i=0;
-	for(i = 1; i < read_size + 1; i++)
-	{	
-		fscanf(fp, "%s", buff);
-		n = atof(buff);
-		m[i-1] = n;
-	}
-	fclose(fp);
-}
 /**
  * @brief  Get the weights from the numpy array file
  * @author  Kausutbh
  * @date June 7, 2019
- * @param 1. unsigned char* f : variable to put weights into
+ * @param 1. float* f : variable to put weights into
  *        2. char filename[] : File name of the weights filename
  *        3. int size
  * @return None
  */
-void getWeights(unsigned char* f, char filename[], int size)
+void getWeights(float* f, char filename[], int size)
 {
     FILE *latfile;
     latfile=fopen(filename,"r");
     /* 80 is the offset of numpy array file*/
     fseek(latfile, 0, SEEK_SET);
-    fread(f,sizeof(unsigned char),size,latfile);
+    fread(f,sizeof(float),size,latfile);
     fclose(latfile);
 }
 /**
@@ -260,7 +243,7 @@ void getWeights(unsigned char* f, char filename[], int size)
  *        3. int size
  * @return None
  */
-void getBias(int* f, char filename[], int size)
+void getBias(float* f, char filename[], int size)
 {
     FILE *latfile;
     latfile=fopen(filename,"r");
@@ -293,7 +276,7 @@ void display_data(unsigned char* data,int num) {
 	printf("\n");
 }
 
-void convStandard (unsigned char* opfm) {
+void convStandard (float* opfm) {
 
 	cl_mem d_image_r; //R channel
 	cl_mem d_image_g; //G channel
@@ -307,9 +290,9 @@ void convStandard (unsigned char* opfm) {
 	int i,j,k;
 
 	/*Bias*/
-	int* h_bias;
+	float* h_bias;
 	
-    h_bias = (int*)malloc(sizeof(int) * IP_FM_1);
+    h_bias = (float*)malloc(sizeof(float) * IP_FM_1);
 
 	//Get bias values
     getBias(h_bias,"bias/BConv2d_0",IP_FM_1);
@@ -327,9 +310,9 @@ void convStandard (unsigned char* opfm) {
 	d_image_r = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_r, &err);
 	d_image_g = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_g, &err);
 	d_image_b = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_b, &err);
-	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, (HEIGHT_1)*(WIDTH_1)*IP_FM_1*sizeof(unsigned char), NULL, &err);
-	d_filter = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, IP_FM_1*FDIM*FDIM*FDIM*sizeof(unsigned char), filter, &err);
-	d_bias = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, IP_FM_1*sizeof(int), h_bias, &err);
+	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, (HEIGHT_1)*(WIDTH_1)*IP_FM_1*sizeof(float), NULL, &err);
+	d_filter = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, IP_FM_1*FDIM*FDIM*FDIM*sizeof(float), filter, &err);
+	d_bias = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, IP_FM_1*sizeof(float), h_bias, &err);
 
 	if (!d_image_r || !d_image_g || !d_image_b || !d_filter || !d_output || !d_bias)
 	{
@@ -340,8 +323,8 @@ void convStandard (unsigned char* opfm) {
 	err = clEnqueueWriteBuffer(commands, d_image_r, CL_TRUE, 0, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_r, 0, NULL, NULL);
 	err |= clEnqueueWriteBuffer(commands, d_image_g, CL_TRUE, 0, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_g, 0, NULL, NULL);   
 	err |= clEnqueueWriteBuffer(commands, d_image_b, CL_TRUE, 0, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_b, 0, NULL, NULL);   
-	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, IP_FM_1*FDIM*FDIM*FDIM*sizeof(unsigned char), filter, 0, NULL, NULL);   
-	err |= clEnqueueWriteBuffer(commands, d_bias, CL_TRUE, 0, IP_FM_1*sizeof(int), h_bias, 0, NULL, NULL);   
+	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, IP_FM_1*FDIM*FDIM*FDIM*sizeof(float), filter, 0, NULL, NULL);   
+	err |= clEnqueueWriteBuffer(commands, d_bias, CL_TRUE, 0, IP_FM_1*sizeof(float), h_bias, 0, NULL, NULL);   
 
 	if (err != CL_SUCCESS)
 	{
@@ -354,10 +337,6 @@ void convStandard (unsigned char* opfm) {
 	int filtersize = FDIM;
 	int no_fm_0 = OP_FM_0;
     int stride = 2;
-	float M = M_0;
-	float Sbias = SBIAS_0;
-	unsigned char Z1 = Z1_0;
-	unsigned char Z2 = Z2_0;
 
 	err = clSetKernelArg(standard_conv, 0, sizeof(cl_mem), (void *)&d_output);
 	err |= clSetKernelArg(standard_conv, 1, sizeof(cl_mem), (void *)&d_image_r);
@@ -370,10 +349,6 @@ void convStandard (unsigned char* opfm) {
 	err |= clSetKernelArg(standard_conv, 8, sizeof(int), (void *)&filtersize);
     err |= clSetKernelArg(standard_conv, 9, sizeof(int), (void *)&stride);
     err |= clSetKernelArg(standard_conv, 10, sizeof(int), (void *)&no_fm_0);
-	err |= clSetKernelArg(standard_conv, 11, sizeof(float), (void *)&M);
-	err |= clSetKernelArg(standard_conv, 12, sizeof(float), (void *)&Sbias);
-	err |= clSetKernelArg(standard_conv, 13, sizeof(unsigned char), (void *)&Z1);
-	err |= clSetKernelArg(standard_conv, 14, sizeof(unsigned char), (void *)&Z2);
 
 
 	if (err != CL_SUCCESS)
@@ -387,7 +362,7 @@ void convStandard (unsigned char* opfm) {
 	localWorkSize[1] = 8;
 	globalWorkSize[0] = 112;
 	globalWorkSize[1] = 112;
-	err = clEnqueueNDRangeKernel(commands, standard_conv, 2, NULL,globalWorkSize, localWorkSize, 0, NULL, &myevent);   
+	err = clEnqueueNDRangeKernel(commands, standard_conv, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myevent);   
     
 	if (err != CL_SUCCESS)
 	{
@@ -400,7 +375,7 @@ void convStandard (unsigned char* opfm) {
 	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
 	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_END,sizeof(cl_ulong), &end, NULL);
 	kernelExecTimeNs += end - start;
-	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, IP_FM_1*(HEIGHT_1)*(WIDTH_1)*sizeof(unsigned char), opfm, 0, NULL, NULL);
+	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, IP_FM_1*(HEIGHT_1)*(WIDTH_1)*sizeof(float), opfm, 0, NULL, NULL);
 
 	if (err != CL_SUCCESS)
 	{
@@ -433,9 +408,9 @@ void convStandard (unsigned char* opfm) {
 
 }
 
-void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias, 
+void convDepthwise(float* ipfm, float* opfm, char* fileName_bias, 
 				   char* fileName_filter, int iph, int ipw, int oph, int opw, int ip_fsize, 
-				   int op_fsize, int stride, float M, float Sbias, int Z2) {
+				   int op_fsize, int stride) {
 	
 	cl_mem d_input;	//Input Data
 	cl_mem d_bias;	//Bias Data
@@ -444,9 +419,9 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	int i,j,k;
 
 	/*Bias*/
-	int* h_bias;
+	float* h_bias;
 	
-    h_bias = (int*)malloc(sizeof(int) * op_fsize);
+    h_bias = (float*)malloc(sizeof(float) * op_fsize);
 
 	//Get bias values
     getBias(h_bias,fileName_bias,op_fsize);
@@ -455,10 +430,10 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	getWeights(filter,fileName_filter,(op_fsize*FDIM*FDIM));
 	
 	//Create buffer for device
-	d_input = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, iph*ipw*ip_fsize*sizeof(unsigned char), ipfm, &err);
-	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, oph*opw*op_fsize*sizeof(unsigned char), NULL, &err);
-	d_filter = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, op_fsize*FDIM*FDIM*sizeof(unsigned char), filter, &err);	
-	d_bias = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, op_fsize*sizeof(int), h_bias, &err);
+	d_input = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, iph*ipw*ip_fsize*sizeof(float), ipfm, &err);
+	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, oph*opw*op_fsize*sizeof(float), NULL, &err);
+	d_filter = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, op_fsize*FDIM*FDIM*sizeof(float), filter, &err);	
+	d_bias = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, op_fsize*sizeof(float), h_bias, &err);
 
 	if (!d_input || !d_filter || !d_output || !d_bias)
 	{
@@ -466,9 +441,9 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 		exit(1);
 	}    
 	
-	err = clEnqueueWriteBuffer(commands, d_input, CL_TRUE, 0, iph*ipw*ip_fsize*sizeof(unsigned char), ipfm, 0, NULL, NULL);
-	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, op_fsize*FDIM*FDIM*sizeof(unsigned char), filter, 0, NULL, NULL);
-	err |= clEnqueueWriteBuffer(commands, d_bias, CL_TRUE, 0, op_fsize*sizeof(int), h_bias, 0, NULL, NULL);   
+	err = clEnqueueWriteBuffer(commands, d_input, CL_TRUE, 0, iph*ipw*ip_fsize*sizeof(float), ipfm, 0, NULL, NULL);
+	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, op_fsize*FDIM*FDIM*sizeof(float), filter, 0, NULL, NULL);
+	err |= clEnqueueWriteBuffer(commands, d_bias, CL_TRUE, 0, op_fsize*sizeof(float), h_bias, 0, NULL, NULL);   
 
 	if (err != CL_SUCCESS)
 	{
@@ -489,9 +464,6 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	err |= clSetKernelArg(depthwise_conv, 6, sizeof(int), (void *)&filtersize);
 	err |= clSetKernelArg(depthwise_conv, 7, sizeof(int), (void *)&stride);
 	err |= clSetKernelArg(depthwise_conv, 8, sizeof(int), (void *)&op_fsize);
-	err |= clSetKernelArg(depthwise_conv, 9, sizeof(float), (void *)&M);
-	err |= clSetKernelArg(depthwise_conv, 10, sizeof(float), (void *)&Sbias);
-	err |= clSetKernelArg(depthwise_conv, 11, sizeof(unsigned char), (void *)&Z2);
     
 	if (err != CL_SUCCESS)
 	{ 
@@ -504,6 +476,7 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	localWorkSize[1] = 1;
 	globalWorkSize[0] = opw;
 	globalWorkSize[1] = oph;
+
 	err = clEnqueueNDRangeKernel(commands, depthwise_conv, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myevent);   
     
 	if (err != CL_SUCCESS)
@@ -514,10 +487,10 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
    
 	clWaitForEvents(1,&myevent);	 
 	clFinish(commands);   
-	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_END,sizeof(cl_ulong), &end, NULL);
+	clGetEventProfilingInfo(myevent, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+	clGetEventProfilingInfo(myevent, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
 	kernelExecTimeNs += end - start;	
-	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, op_fsize*oph*opw*sizeof(unsigned char), opfm, 0, NULL, NULL);
+	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, op_fsize*oph*opw*sizeof(float), opfm, 0, NULL, NULL);
 
 	if (err != CL_SUCCESS)
 	{
@@ -543,9 +516,8 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 
 }
 
-void convPointwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias, 
-				   char* fileName_filter, int iph, int ipw, int oph, int opw, int ip_fsize, 
-				   int op_fsize, float M, float Sbias, int Z2) {
+void convPointwise(float* ipfm, float* opfm, char* fileName_bias, char* fileName_filter, 
+					int iph, int ipw, int oph, int opw, int ip_fsize, int op_fsize) {
 
 	cl_mem d_input;	//Input Data
 	cl_mem d_bias;	//Bias Data
@@ -554,21 +526,21 @@ void convPointwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	int i,j,k;
 
 	/*Bias*/
-	int* h_bias;
+	float* h_bias;
 	
-    h_bias = (int*)malloc(sizeof(int) * op_fsize);
+    h_bias = (float*)malloc(sizeof(float) * op_fsize);
 
 	//Get bias values
     getBias(h_bias,fileName_bias,op_fsize);
 
 	//Get filter values
-	getWeights(filter,fileName_filter,(ip_fsize*op_fsize*FDIM_P*FDIM_P));
+	getWeights(filter, fileName_filter, (ip_fsize*op_fsize*FDIM_P*FDIM_P));
 	
 	//Create buffer for device
-	d_input = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, iph*ipw*ip_fsize*sizeof(unsigned char), ipfm, &err);
-	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, oph*opw*op_fsize*sizeof(unsigned char), NULL, &err);
-	d_filter = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, ip_fsize*op_fsize*FDIM_P*sizeof(unsigned char), filter, &err);
-	d_bias = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, op_fsize*sizeof(int), h_bias, &err);	
+	d_input = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, iph*ipw*ip_fsize*sizeof(float), ipfm, &err);
+	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, oph*opw*op_fsize*sizeof(float), NULL, &err);
+	d_filter = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, ip_fsize*op_fsize*FDIM_P*sizeof(float), filter, &err);
+	d_bias = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, op_fsize*sizeof(float), h_bias, &err);	
 
 	if (!d_input || !d_filter || !d_output || !d_bias)
 	{
@@ -576,9 +548,9 @@ void convPointwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 		exit(1);
 	}
 	
-	err = clEnqueueWriteBuffer(commands, d_input, CL_TRUE, 0, iph*ipw*ip_fsize*sizeof(unsigned char), ipfm, 0, NULL, NULL);
-	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, ip_fsize*op_fsize*FDIM_P*FDIM_P*sizeof(unsigned char), filter, 0, NULL, NULL);
-	err |= clEnqueueWriteBuffer(commands, d_bias, CL_TRUE, 0, op_fsize*sizeof(int), h_bias, 0, NULL, NULL);
+	err = clEnqueueWriteBuffer(commands, d_input, CL_TRUE, 0, iph*ipw*ip_fsize*sizeof(float), ipfm, 0, NULL, NULL);
+	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, ip_fsize*op_fsize*FDIM_P*FDIM_P*sizeof(float), filter, 0, NULL, NULL);
+	err |= clEnqueueWriteBuffer(commands, d_bias, CL_TRUE, 0, op_fsize*sizeof(float), h_bias, 0, NULL, NULL);
 
 	if (err != CL_SUCCESS)
 	{
@@ -598,9 +570,6 @@ void convPointwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	err |= clSetKernelArg(pointwise_conv, 5, sizeof(int), (void *)&cols);
 	err |= clSetKernelArg(pointwise_conv, 6, sizeof(int), (void *)&filtersize);
 	err |= clSetKernelArg(pointwise_conv, 7, sizeof(int), (void *)&op_fsize);
-	err |= clSetKernelArg(pointwise_conv, 8, sizeof(float), (void *)&M);
-	err |= clSetKernelArg(pointwise_conv, 9, sizeof(float), (void *)&Sbias);
-	err |= clSetKernelArg(pointwise_conv, 10, sizeof(unsigned char), (void *)&Z2);
 	
 	if (err != CL_SUCCESS)
 	{ 
@@ -626,7 +595,7 @@ void convPointwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
 	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_END,sizeof(cl_ulong), &end, NULL);
 	kernelExecTimeNs += end - start;
-	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, op_fsize*oph*opw*sizeof(unsigned char), opfm, 0, NULL, NULL);
+	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, op_fsize*oph*opw*sizeof(float), opfm, 0, NULL, NULL);
 
 	if (err != CL_SUCCESS)
 	{
@@ -652,9 +621,8 @@ void convPointwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	clReleaseMemObject(d_input);
 }
 
-void convAvgPool(unsigned char* ipfm, unsigned char* opfm,
-				   int iph, int ipw, int oph, int opw, int ip_fsize,
-				   int op_fsize) {
+void convAvgPool(float* ipfm, float* opfm, int iph, int ipw, 
+				int oph, int opw, int ip_fsize, int op_fsize) {
 
 	cl_mem d_input;	//Input Data	
 
@@ -662,8 +630,8 @@ void convAvgPool(unsigned char* ipfm, unsigned char* opfm,
 	int i,j,k;
 
 	//Create buffer for device
-	d_input = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, iph*ipw*ip_fsize*sizeof(unsigned char), ipfm, &err);
-	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, oph*opw*op_fsize*sizeof(unsigned char), NULL, &err);
+	d_input = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, iph*ipw*ip_fsize*sizeof(float), ipfm, &err);
+	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, oph*opw*op_fsize*sizeof(float), NULL, &err);
 
 	if (!d_input || !d_output )
 	{
@@ -671,7 +639,7 @@ void convAvgPool(unsigned char* ipfm, unsigned char* opfm,
 		exit(1);
 	}
 	
-	err = clEnqueueWriteBuffer(commands, d_input, CL_TRUE, 0, iph*ipw*ip_fsize*sizeof(unsigned char), ipfm, 0, NULL, NULL);
+	err = clEnqueueWriteBuffer(commands, d_input, CL_TRUE, 0, iph*ipw*ip_fsize*sizeof(float), ipfm, 0, NULL, NULL);
 
 	if (err != CL_SUCCESS)
 	{
@@ -709,7 +677,7 @@ void convAvgPool(unsigned char* ipfm, unsigned char* opfm,
 	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
 	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_END,sizeof(cl_ulong), &end, NULL);
 	kernelExecTimeNs += end - start;
-	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, op_fsize*oph*opw*sizeof(unsigned char), opfm, 0, NULL, NULL);
+	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, op_fsize*oph*opw*sizeof(float), opfm, 0, NULL, NULL);
 
 	if (err != CL_SUCCESS)
 	{
@@ -734,14 +702,14 @@ void convAvgPool(unsigned char* ipfm, unsigned char* opfm,
 	clReleaseMemObject(d_input);
 }
 
-void fullyConectedLayer( unsigned char* ipfm, unsigned char* opfm, char* fileName_bias , char* fileName_filter , int classes , int elements)
+void fullyConectedLayer( float* ipfm, float* opfm, char* fileName_bias , char* fileName_filter , int classes , int elements)
 {   
-    int i,j,jf=0,itr;
+    int i,j;
 	int sum = 0;
 	/*Bias*/
-	int* h_bias;
+	float* h_bias;
 	
-    h_bias = (int*)malloc(sizeof(int) * classes);
+    h_bias = (float*)malloc(sizeof(float) * classes);
 
 	//Get bias values
     getBias(h_bias,fileName_bias, classes);
@@ -753,18 +721,18 @@ void fullyConectedLayer( unsigned char* ipfm, unsigned char* opfm, char* fileNam
     {
         for(j = 0; j < ELEMENTS; j++)
         {
-            sum += (ipfm[j] * (filter[j] - Z2_28));
+            sum += ipfm[j] * filter[j];
 			// if (j == 0)
 			// 	printf("ip %d + fil %d = sum %d \n", ipfm[j],(filter[j] - Z2_28), sum );
         }
-		opfm[i] = (int)((M_28 * sum) + (h_bias[i] * SBIAS_28));
+		opfm[i] = sum + h_bias[i];
 		sum = 0;
     }
     printf("Layer 29 Fully Connected Done\n");
 }
 
 //Softmax
-void softmax (unsigned char* ipfm)
+void softmax (float* ipfm)
 {
     double expo[1000], sum, max = 0.0;
 	int maxIndex;
@@ -775,7 +743,7 @@ void softmax (unsigned char* ipfm)
     {
         expo[i] = exp(ipfm[i]);
         sum += expo[i];
-		printf("i = %d \t ipfm %d %f\n", i,ipfm[i],expo[i]);
+		printf("i = %d \t ipfm %f %f\n", i, ipfm[i], expo[i]);
     }
     for(i = 0; i < CLASSES_SOFTMAX; i++)
     {
@@ -796,8 +764,8 @@ void softmax (unsigned char* ipfm)
 int main(int argc, char** argv) {
 
     
-	filter = (unsigned char*) malloc(FILTER_MAX*FILTER_MAX*FDIM*FDIM*FDIM*sizeof(unsigned char));
-	unsigned char* op_fm_0 = (unsigned char*) malloc(IP_FM_1 * HEIGHT_1 * WIDTH_1 * sizeof(unsigned char)); //output feature map for layer 0
+	filter = (float*) malloc(FILTER_MAX*FILTER_MAX*FDIM*FDIM*FDIM*sizeof(float));
+	float* op_fm_0 = (float*) malloc(IP_FM_1 * HEIGHT_1 * WIDTH_1 * sizeof(float)); //output feature map for layer 0
 	int i,j,k;
 
 	openClDeviceConfig();
@@ -808,171 +776,171 @@ int main(int argc, char** argv) {
 	//Layer 1 Depth-Wise Convolution
 	
 	layer_count++;
-	unsigned char* op_fm_1 = (unsigned char*) malloc(IP_FM_2 * HEIGHT_2 * WIDTH_2 * sizeof(unsigned char)); //output feature map for layer 1
-	convDepthwise(op_fm_0, op_fm_1, "bias/BConv2d_1_depthwise", "weights/Conv2d_1_depthwise", HEIGHT_1, WIDTH_1, HEIGHT_2, WIDTH_2, IP_FM_1, IP_FM_2, 1, M_1, SBIAS_1, Z2_1);
+	float* op_fm_1 = (float*) malloc(IP_FM_2 * HEIGHT_2 * WIDTH_2 * sizeof(float)); //output feature map for layer 1
+	convDepthwise(op_fm_0, op_fm_1, "bias/BConv2d_1_depthwise", "weights/Conv2d_1_depthwise", HEIGHT_1, WIDTH_1, HEIGHT_2, WIDTH_2, IP_FM_1, IP_FM_2, 1);
 
 
 	
 	//Layer 2 Point-Wise Convolution
 
 	layer_count++;
-	unsigned char* op_fm_2 = (unsigned char*) malloc(IP_FM_3 * HEIGHT_3 * WIDTH_3 * sizeof(unsigned char));	//output feature map for layer 2
-	convPointwise(op_fm_1, op_fm_2, "bias/BConv2d_1_pointwise", "weights/Conv2d_1_pointwise", HEIGHT_2, WIDTH_2, HEIGHT_3, WIDTH_3, IP_FM_2, IP_FM_3, M_2, SBIAS_2, Z2_2);
+	float* op_fm_2 = (float*) malloc(IP_FM_3 * HEIGHT_3 * WIDTH_3 * sizeof(float));	//output feature map for layer 2
+	convPointwise(op_fm_1, op_fm_2, "bias/BConv2d_1_pointwise", "weights/Conv2d_1_pointwise", HEIGHT_2, WIDTH_2, HEIGHT_3, WIDTH_3, IP_FM_2, IP_FM_3);
 
 
 	//Layer 3 Depth-Wise Convolution
 
 	layer_count++;
-	unsigned char* op_fm_3 = (unsigned char*) malloc(IP_FM_4 * HEIGHT_4 * WIDTH_4 * sizeof(unsigned char)); //output feature map for layer 3
-	convDepthwise(op_fm_2, op_fm_3, "bias/BConv2d_2_depthwise", "weights/Conv2d_2_depthwise", HEIGHT_3, WIDTH_3, HEIGHT_4, WIDTH_4, IP_FM_3, IP_FM_4, 2, M_3, SBIAS_3, Z2_3);
+	float* op_fm_3 = (float*) malloc(IP_FM_4 * HEIGHT_4 * WIDTH_4 * sizeof(float)); //output feature map for layer 3
+	convDepthwise(op_fm_2, op_fm_3, "bias/BConv2d_2_depthwise", "weights/Conv2d_2_depthwise", HEIGHT_3, WIDTH_3, HEIGHT_4, WIDTH_4, IP_FM_3, IP_FM_4, 2);
 
 	//Layer 4 Point-Wise Convolution
 
 	layer_count++;
-	unsigned char* op_fm_4 = (unsigned char*) malloc(IP_FM_5 * HEIGHT_5 * WIDTH_5 * sizeof(unsigned char));	//output feature map for layer 4
-	convPointwise(op_fm_3, op_fm_4, "bias/BConv2d_2_pointwise", "weights/Conv2d_2_pointwise", HEIGHT_4, WIDTH_4, HEIGHT_5, WIDTH_5, IP_FM_4, IP_FM_5, M_4, SBIAS_4, Z2_4);
+	float* op_fm_4 = (float*) malloc(IP_FM_5 * HEIGHT_5 * WIDTH_5 * sizeof(float));	//output feature map for layer 4
+	convPointwise(op_fm_3, op_fm_4, "bias/BConv2d_2_pointwise", "weights/Conv2d_2_pointwise", HEIGHT_4, WIDTH_4, HEIGHT_5, WIDTH_5, IP_FM_4, IP_FM_5);
 
 	//Layer 5 Depth-Wise Convolution
 
 	layer_count++;
-	unsigned char* op_fm_5 = (unsigned char*) malloc(IP_FM_6 * HEIGHT_6 * WIDTH_6 * sizeof(unsigned char)); //output feature map for layer 5
-	convDepthwise(op_fm_4, op_fm_5, "bias/BConv2d_3_depthwise", "weights/Conv2d_3_depthwise", HEIGHT_5, WIDTH_5, HEIGHT_6, WIDTH_6, IP_FM_5, IP_FM_6, 1, M_5, SBIAS_5, Z2_5);
+	float* op_fm_5 = (float*) malloc(IP_FM_6 * HEIGHT_6 * WIDTH_6 * sizeof(float)); //output feature map for layer 5
+	convDepthwise(op_fm_4, op_fm_5, "bias/BConv2d_3_depthwise", "weights/Conv2d_3_depthwise", HEIGHT_5, WIDTH_5, HEIGHT_6, WIDTH_6, IP_FM_5, IP_FM_6, 1);
 
 	//Layer 6 Point-Wise Convolution
 
 	layer_count++;
-	unsigned char* op_fm_6 = (unsigned char*) malloc(IP_FM_7 * HEIGHT_7 * WIDTH_7 * sizeof(unsigned char));	//output feature map for layer 6
-	convPointwise(op_fm_5, op_fm_6, "bias/BConv2d_3_pointwise", "weights/Conv2d_3_pointwise", HEIGHT_6, WIDTH_6, HEIGHT_7, WIDTH_7, IP_FM_6, IP_FM_7, M_6, SBIAS_6, Z2_6);
+	float* op_fm_6 = (float*) malloc(IP_FM_7 * HEIGHT_7 * WIDTH_7 * sizeof(float));	//output feature map for layer 6
+	convPointwise(op_fm_5, op_fm_6, "bias/BConv2d_3_pointwise", "weights/Conv2d_3_pointwise", HEIGHT_6, WIDTH_6, HEIGHT_7, WIDTH_7, IP_FM_6, IP_FM_7);
 
 	//Layer 7 Depth-Wise Convolution
 
 	layer_count++;
-	unsigned char* op_fm_7 = (unsigned char*) malloc(IP_FM_8 * HEIGHT_8 * WIDTH_8 * sizeof(unsigned char)); //output feature map for layer 7
-	convDepthwise(op_fm_6, op_fm_7, "bias/BConv2d_4_depthwise", "weights/Conv2d_4_depthwise", HEIGHT_7, WIDTH_7, HEIGHT_8, WIDTH_8, IP_FM_7, IP_FM_8, 2, M_7, SBIAS_7, Z2_7);
+	float* op_fm_7 = (float*) malloc(IP_FM_8 * HEIGHT_8 * WIDTH_8 * sizeof(float)); //output feature map for layer 7
+	convDepthwise(op_fm_6, op_fm_7, "bias/BConv2d_4_depthwise", "weights/Conv2d_4_depthwise", HEIGHT_7, WIDTH_7, HEIGHT_8, WIDTH_8, IP_FM_7, IP_FM_8, 2);
 
 	//Layer 8 Point-Wise Convolution
 
 	layer_count++;
-	unsigned char* op_fm_8 = (unsigned char*) malloc(IP_FM_9 * HEIGHT_9 * WIDTH_9 * sizeof(unsigned char));	//output feature map for layer 8
-	convPointwise(op_fm_7, op_fm_8, "bias/BConv2d_4_pointwise", "weights/Conv2d_4_pointwise", HEIGHT_8, WIDTH_8, HEIGHT_9, WIDTH_9, IP_FM_8, IP_FM_9, M_8, SBIAS_8, Z2_8);
+	float* op_fm_8 = (float*) malloc(IP_FM_9 * HEIGHT_9 * WIDTH_9 * sizeof(float));	//output feature map for layer 8
+	convPointwise(op_fm_7, op_fm_8, "bias/BConv2d_4_pointwise", "weights/Conv2d_4_pointwise", HEIGHT_8, WIDTH_8, HEIGHT_9, WIDTH_9, IP_FM_8, IP_FM_9);
 
 	//Layer 9 Depth-Wise Convolution
 
 	layer_count++;
-	unsigned char* op_fm_9 = (unsigned char*) malloc(IP_FM_10 * HEIGHT_10 * WIDTH_10 * sizeof(unsigned char)); //output feature map for layer 9
-	convDepthwise(op_fm_8, op_fm_9, "bias/BConv2d_5_depthwise", "weights/Conv2d_5_depthwise", HEIGHT_9, WIDTH_9, HEIGHT_10, WIDTH_10, IP_FM_9, IP_FM_10, 1, M_9, SBIAS_9, Z2_9);
+	float* op_fm_9 = (float*) malloc(IP_FM_10 * HEIGHT_10 * WIDTH_10 * sizeof(float)); //output feature map for layer 9
+	convDepthwise(op_fm_8, op_fm_9, "bias/BConv2d_5_depthwise", "weights/Conv2d_5_depthwise", HEIGHT_9, WIDTH_9, HEIGHT_10, WIDTH_10, IP_FM_9, IP_FM_10, 1);
 
 	//Layer 10 Point-Wise Convolution
 
 	layer_count++;
-	unsigned char* op_fm_10 = (unsigned char*) malloc(IP_FM_11 * HEIGHT_11 * WIDTH_11 * sizeof(unsigned char));	//output feature map for layer 10
-	convPointwise(op_fm_9, op_fm_10, "bias/BConv2d_5_pointwise", "weights/Conv2d_5_pointwise", HEIGHT_10, WIDTH_10, HEIGHT_11, WIDTH_11, IP_FM_10, IP_FM_11, M_10, SBIAS_10, Z2_10);
+	float* op_fm_10 = (float*) malloc(IP_FM_11 * HEIGHT_11 * WIDTH_11 * sizeof(float));	//output feature map for layer 10
+	convPointwise(op_fm_9, op_fm_10, "bias/BConv2d_5_pointwise", "weights/Conv2d_5_pointwise", HEIGHT_10, WIDTH_10, HEIGHT_11, WIDTH_11, IP_FM_10, IP_FM_11);
 
 	//Layer 11 Depth-Wise Convolution
 
 	layer_count++;
-	unsigned char* op_fm_11 = (unsigned char*) malloc(IP_FM_12 * HEIGHT_12 * WIDTH_12 * sizeof(unsigned char)); //output feature map for layer 11
-	convDepthwise(op_fm_10, op_fm_11, "bias/BConv2d_6_depthwise", "weights/Conv2d_6_depthwise", HEIGHT_11, WIDTH_11, HEIGHT_12, WIDTH_12, IP_FM_11, IP_FM_12, 2, M_11, SBIAS_11, Z2_11);
+	float* op_fm_11 = (float*) malloc(IP_FM_12 * HEIGHT_12 * WIDTH_12 * sizeof(float)); //output feature map for layer 11
+	convDepthwise(op_fm_10, op_fm_11, "bias/BConv2d_6_depthwise", "weights/Conv2d_6_depthwise", HEIGHT_11, WIDTH_11, HEIGHT_12, WIDTH_12, IP_FM_11, IP_FM_12, 2);
 
 	//Layer 12 Point-Wise Convolution
 
 	layer_count++;
-	unsigned char* op_fm_12 = (unsigned char*) malloc(IP_FM_13 * HEIGHT_13 * WIDTH_13 * sizeof(unsigned char));	//output feature map for layer 12
-	convPointwise(op_fm_11, op_fm_12, "bias/BConv2d_6_pointwise", "weights/Conv2d_6_pointwise", HEIGHT_12, WIDTH_12, HEIGHT_13, WIDTH_13, IP_FM_12, IP_FM_13, M_12, SBIAS_12, Z2_12);
+	float* op_fm_12 = (float*) malloc(IP_FM_13 * HEIGHT_13 * WIDTH_13 * sizeof(float));	//output feature map for layer 12
+	convPointwise(op_fm_11, op_fm_12, "bias/BConv2d_6_pointwise", "weights/Conv2d_6_pointwise", HEIGHT_12, WIDTH_12, HEIGHT_13, WIDTH_13, IP_FM_12, IP_FM_13);
 
 	//Layer 13 Depth-Wise Convolution
 
 	layer_count++;
-	unsigned char* op_fm_13 = (unsigned char*) malloc(IP_FM_14 * HEIGHT_14 * WIDTH_14 * sizeof(unsigned char)); //output feature map for layer 13
-	convDepthwise(op_fm_12, op_fm_13, "bias/BConv2d_7_depthwise", "weights/Conv2d_7_depthwise", HEIGHT_13, WIDTH_13, HEIGHT_14, WIDTH_14, IP_FM_13, IP_FM_14, 1, M_13, SBIAS_13, Z2_13);
+	float* op_fm_13 = (float*) malloc(IP_FM_14 * HEIGHT_14 * WIDTH_14 * sizeof(float)); //output feature map for layer 13
+	convDepthwise(op_fm_12, op_fm_13, "bias/BConv2d_7_depthwise", "weights/Conv2d_7_depthwise", HEIGHT_13, WIDTH_13, HEIGHT_14, WIDTH_14, IP_FM_13, IP_FM_14, 1);
 
 	//Layer 14 Point-Wise Convolution
 
 	layer_count++;
-	unsigned char* op_fm_14 = (unsigned char*) malloc(IP_FM_15 * HEIGHT_15 * WIDTH_15 * sizeof(unsigned char));	//output feature map for layer 14
-	convPointwise(op_fm_13, op_fm_14, "bias/BConv2d_7_pointwise", "weights/Conv2d_7_pointwise", HEIGHT_14, WIDTH_14, HEIGHT_15, WIDTH_15, IP_FM_14, IP_FM_15, M_14, SBIAS_14, Z2_14);
+	float* op_fm_14 = (float*) malloc(IP_FM_15 * HEIGHT_15 * WIDTH_15 * sizeof(float));	//output feature map for layer 14
+	convPointwise(op_fm_13, op_fm_14, "bias/BConv2d_7_pointwise", "weights/Conv2d_7_pointwise", HEIGHT_14, WIDTH_14, HEIGHT_15, WIDTH_15, IP_FM_14, IP_FM_15);
 
 	//Layer 15 Depth-Wise Convolution
 
 	layer_count++;
-	unsigned char* op_fm_15 = (unsigned char*) malloc(IP_FM_16 * HEIGHT_16 * WIDTH_16 * sizeof(unsigned char)); //output feature map for layer 15
-	convDepthwise(op_fm_14, op_fm_15, "bias/BConv2d_8_depthwise", "weights/Conv2d_8_depthwise", HEIGHT_15, WIDTH_15, HEIGHT_16, WIDTH_16, IP_FM_15, IP_FM_16, 1, M_15, SBIAS_15, Z2_15);
+	float* op_fm_15 = (float*) malloc(IP_FM_16 * HEIGHT_16 * WIDTH_16 * sizeof(float)); //output feature map for layer 15
+	convDepthwise(op_fm_14, op_fm_15, "bias/BConv2d_8_depthwise", "weights/Conv2d_8_depthwise", HEIGHT_15, WIDTH_15, HEIGHT_16, WIDTH_16, IP_FM_15, IP_FM_16, 1);
 
 	//Layer 16 Point-Wise Convolution
 
 	layer_count++;
-	unsigned char* op_fm_16 = (unsigned char*) malloc(IP_FM_17 * HEIGHT_17 * WIDTH_17 * sizeof(unsigned char));	//output feature map for layer 16
-	convPointwise(op_fm_15, op_fm_16, "bias/BConv2d_8_pointwise", "weights/Conv2d_8_pointwise", HEIGHT_16, WIDTH_16, HEIGHT_17, WIDTH_17, IP_FM_16, IP_FM_17, M_16, SBIAS_16, Z2_16);
+	float* op_fm_16 = (float*) malloc(IP_FM_17 * HEIGHT_17 * WIDTH_17 * sizeof(float));	//output feature map for layer 16
+	convPointwise(op_fm_15, op_fm_16, "bias/BConv2d_8_pointwise", "weights/Conv2d_8_pointwise", HEIGHT_16, WIDTH_16, HEIGHT_17, WIDTH_17, IP_FM_16, IP_FM_17);
 
 	//Layer 17 Depth-Wise Convolution
 
 	layer_count++;
-	unsigned char* op_fm_17 = (unsigned char*) malloc(IP_FM_18 * HEIGHT_18 * WIDTH_18 * sizeof(unsigned char)); //output feature map for layer 17
-	convDepthwise(op_fm_16, op_fm_17, "bias/BConv2d_9_depthwise", "weights/Conv2d_9_depthwise", HEIGHT_17, WIDTH_17, HEIGHT_18, WIDTH_18, IP_FM_17, IP_FM_18, 1, M_17, SBIAS_17, Z2_17);
+	float* op_fm_17 = (float*) malloc(IP_FM_18 * HEIGHT_18 * WIDTH_18 * sizeof(float)); //output feature map for layer 17
+	convDepthwise(op_fm_16, op_fm_17, "bias/BConv2d_9_depthwise", "weights/Conv2d_9_depthwise", HEIGHT_17, WIDTH_17, HEIGHT_18, WIDTH_18, IP_FM_17, IP_FM_18, 1);
 
 	//Layer 18 Point-Wise Convolution
 
 	layer_count++;
-	unsigned char* op_fm_18 = (unsigned char*) malloc(IP_FM_19 * HEIGHT_19 * WIDTH_19 * sizeof(unsigned char));	//output feature map for layer 18
-	convPointwise(op_fm_17, op_fm_18, "bias/BConv2d_9_pointwise", "weights/Conv2d_9_pointwise", HEIGHT_18, WIDTH_18, HEIGHT_19, WIDTH_19, IP_FM_18, IP_FM_19, M_18, SBIAS_18, Z2_18);
+	float* op_fm_18 = (float*) malloc(IP_FM_19 * HEIGHT_19 * WIDTH_19 * sizeof(float));	//output feature map for layer 18
+	convPointwise(op_fm_17, op_fm_18, "bias/BConv2d_9_pointwise", "weights/Conv2d_9_pointwise", HEIGHT_18, WIDTH_18, HEIGHT_19, WIDTH_19, IP_FM_18, IP_FM_19);
 
 	//Layer 19 Depth-Wise Convolution
 
 	layer_count++;
-	unsigned char* op_fm_19 = (unsigned char*) malloc(IP_FM_20 * HEIGHT_20 * WIDTH_20 * sizeof(unsigned char)); //output feature map for layer 19
-	convDepthwise(op_fm_18, op_fm_19, "bias/BConv2d_10_depthwise", "weights/Conv2d_10_depthwise", HEIGHT_19, WIDTH_19, HEIGHT_20, WIDTH_20, IP_FM_19, IP_FM_20, 1, M_19, SBIAS_19, Z2_19);
+	float* op_fm_19 = (float*) malloc(IP_FM_20 * HEIGHT_20 * WIDTH_20 * sizeof(float)); //output feature map for layer 19
+	convDepthwise(op_fm_18, op_fm_19, "bias/BConv2d_10_depthwise", "weights/Conv2d_10_depthwise", HEIGHT_19, WIDTH_19, HEIGHT_20, WIDTH_20, IP_FM_19, IP_FM_20, 1);
 
 	//Layer 20 Point-Wise Convolution
 
 	layer_count++;
-	unsigned char* op_fm_20 = (unsigned char*) malloc(IP_FM_21 * HEIGHT_21 * WIDTH_21 * sizeof(unsigned char));	//output feature map for layer 20
-	convPointwise(op_fm_19, op_fm_20, "bias/BConv2d_10_pointwise", "weights/Conv2d_10_pointwise", HEIGHT_20, WIDTH_20, HEIGHT_21, WIDTH_21, IP_FM_20, IP_FM_21, M_20, SBIAS_20, Z2_20);
+	float* op_fm_20 = (float*) malloc(IP_FM_21 * HEIGHT_21 * WIDTH_21 * sizeof(float));	//output feature map for layer 20
+	convPointwise(op_fm_19, op_fm_20, "bias/BConv2d_10_pointwise", "weights/Conv2d_10_pointwise", HEIGHT_20, WIDTH_20, HEIGHT_21, WIDTH_21, IP_FM_20, IP_FM_21);
 
 	//Layer 21 Depth-Wise Convolution
 
 	layer_count++;
-	unsigned char* op_fm_21 = (unsigned char*) malloc(IP_FM_22 * HEIGHT_22 * WIDTH_22 * sizeof(unsigned char)); //output feature map for layer 21
-	convDepthwise(op_fm_20, op_fm_21, "bias/BConv2d_11_depthwise", "weights/Conv2d_11_depthwise", HEIGHT_21, WIDTH_21, HEIGHT_22, WIDTH_22, IP_FM_21, IP_FM_22, 1, M_21, SBIAS_21, Z2_21);
+	float* op_fm_21 = (float*) malloc(IP_FM_22 * HEIGHT_22 * WIDTH_22 * sizeof(float)); //output feature map for layer 21
+	convDepthwise(op_fm_20, op_fm_21, "bias/BConv2d_11_depthwise", "weights/Conv2d_11_depthwise", HEIGHT_21, WIDTH_21, HEIGHT_22, WIDTH_22, IP_FM_21, IP_FM_22, 1);
 
 	//Layer 22 Point-Wise Convolution
 
 	layer_count++;
-	unsigned char* op_fm_22 = (unsigned char*) malloc(IP_FM_23 * HEIGHT_23 * WIDTH_23 * sizeof(unsigned char));	//output feature map for layer 22
-	convPointwise(op_fm_21, op_fm_22, "bias/BConv2d_11_pointwise", "weights/Conv2d_11_pointwise", HEIGHT_22, WIDTH_22, HEIGHT_23, WIDTH_23, IP_FM_22, IP_FM_23, M_22, SBIAS_22, Z2_22);
+	float* op_fm_22 = (float*) malloc(IP_FM_23 * HEIGHT_23 * WIDTH_23 * sizeof(float));	//output feature map for layer 22
+	convPointwise(op_fm_21, op_fm_22, "bias/BConv2d_11_pointwise", "weights/Conv2d_11_pointwise", HEIGHT_22, WIDTH_22, HEIGHT_23, WIDTH_23, IP_FM_22, IP_FM_23);
 
 	//Layer 23 Depth-Wise Convolution
 
 	layer_count++;
-	unsigned char* op_fm_23 = (unsigned char*) malloc(IP_FM_24 * HEIGHT_24 * WIDTH_24 * sizeof(unsigned char)); //output feature map for layer 23
-	convDepthwise(op_fm_22, op_fm_23, "bias/BConv2d_12_depthwise", "weights/Conv2d_12_depthwise", HEIGHT_23, WIDTH_23, HEIGHT_24, WIDTH_24, IP_FM_23, IP_FM_24, 2, M_23, SBIAS_23, Z2_23);
+	float* op_fm_23 = (float*) malloc(IP_FM_24 * HEIGHT_24 * WIDTH_24 * sizeof(float)); //output feature map for layer 23
+	convDepthwise(op_fm_22, op_fm_23, "bias/BConv2d_12_depthwise", "weights/Conv2d_12_depthwise", HEIGHT_23, WIDTH_23, HEIGHT_24, WIDTH_24, IP_FM_23, IP_FM_24, 2);
 
 	//Layer 24 Point-Wise Convolution
 
 	layer_count++;
-	unsigned char* op_fm_24 = (unsigned char*) malloc(IP_FM_25 * HEIGHT_25 * WIDTH_25 * sizeof(unsigned char));	//output feature map for layer 24
-	convPointwise(op_fm_23, op_fm_24, "bias/BConv2d_12_pointwise", "weights/Conv2d_12_pointwise", HEIGHT_24, WIDTH_24, HEIGHT_25, WIDTH_25, IP_FM_24, IP_FM_25, M_24, SBIAS_24, Z2_24);
+	float* op_fm_24 = (float*) malloc(IP_FM_25 * HEIGHT_25 * WIDTH_25 * sizeof(float));	//output feature map for layer 24
+	convPointwise(op_fm_23, op_fm_24, "bias/BConv2d_12_pointwise", "weights/Conv2d_12_pointwise", HEIGHT_24, WIDTH_24, HEIGHT_25, WIDTH_25, IP_FM_24, IP_FM_25);
 
 	//Layer 25 Depth-Wise Convolution
 
 	layer_count++;
-	unsigned char* op_fm_25 = (unsigned char*) malloc(IP_FM_26 * HEIGHT_26 * WIDTH_26 * sizeof(unsigned char)); //output feature map for layer 25
-	convDepthwise(op_fm_24, op_fm_25, "bias/BConv2d_13_depthwise", "weights/Conv2d_13_depthwise", HEIGHT_25, WIDTH_25, HEIGHT_26, WIDTH_26, IP_FM_25, IP_FM_26, 2, M_25, SBIAS_25, Z2_25);
+	float* op_fm_25 = (float*) malloc(IP_FM_26 * HEIGHT_26 * WIDTH_26 * sizeof(float)); //output feature map for layer 25
+	convDepthwise(op_fm_24, op_fm_25, "bias/BConv2d_13_depthwise", "weights/Conv2d_13_depthwise", HEIGHT_25, WIDTH_25, HEIGHT_26, WIDTH_26, IP_FM_25, IP_FM_26, 2);
 
 	//Layer 26 Point-Wise Convolution
 
 	layer_count++;
-	unsigned char* op_fm_26 = (unsigned char*) malloc(IP_FM_27 * HEIGHT_27 * WIDTH_27 * sizeof(unsigned char));	//output feature map for layer 26
-	convPointwise(op_fm_25, op_fm_26, "bias/BConv2d_13_pointwise", "weights/Conv2d_13_pointwise", HEIGHT_26, WIDTH_26, HEIGHT_27, WIDTH_27, IP_FM_26, IP_FM_27, M_26, SBIAS_26, Z2_26);
+	float* op_fm_26 = (float*) malloc(IP_FM_27 * HEIGHT_27 * WIDTH_27 * sizeof(float));	//output feature map for layer 26
+	convPointwise(op_fm_25, op_fm_26, "bias/BConv2d_13_pointwise", "weights/Conv2d_13_pointwise", HEIGHT_26, WIDTH_26, HEIGHT_27, WIDTH_27, IP_FM_26, IP_FM_27);
 	
 	//Layer 27 Average Pool
 
 	layer_count++;
-	unsigned char* op_fm_27 = (unsigned char*) malloc(ELEMENTS * HEIGHT_28 * WIDTH_28 * sizeof(unsigned char));	//output feature map for layer 27
+	float* op_fm_27 = (float*) malloc(ELEMENTS * HEIGHT_28 * WIDTH_28 * sizeof(float));	//output feature map for layer 27
 	convAvgPool(op_fm_26, op_fm_27, HEIGHT_27, WIDTH_27, HEIGHT_28, WIDTH_28, IP_FM_27, ELEMENTS);
 for (k = 0; k < ELEMENTS; k++){
 		for (j = 0; j < 1; j++){
 			for(i = 0; i < 1; i++){
-				printf("%d\t", op_fm_27[(j*WIDTH_28+i) + (k*HEIGHT_28*WIDTH_28)]);
+				printf("%f\t", op_fm_27[(j*WIDTH_28+i) + (k*HEIGHT_28*WIDTH_28)]);
 			}
 			//printf("\n");
 		}
@@ -981,12 +949,12 @@ for (k = 0; k < ELEMENTS; k++){
 	//Layer 28 Fully COnnected
 printf("\n");
 	layer_count++;
-	unsigned char* op_fm_28 = (unsigned char*) malloc(CLASSES_SOFTMAX * HEIGHT_29 * WIDTH_29 * sizeof(unsigned char));	//output feature map for layer 28
+	float* op_fm_28 = (float*) malloc(CLASSES_SOFTMAX * HEIGHT_29 * WIDTH_29 * sizeof(float));	//output feature map for layer 28
 	fullyConectedLayer(op_fm_27, op_fm_28, "bias/BConv2d_fullyconnected", "weights/Conv2d_fullyconnected", CLASSES, ELEMENTS);
 	for (k = 0; k < CLASSES; k++){
 		for (j = 0; j < 1; j++){
 			for(i = 0; i < 1; i++){
-				printf("%d\t", op_fm_28[(j*WIDTH_28+i) + (k*HEIGHT_28*WIDTH_28)]);
+				printf("%f\t", op_fm_28[(j*WIDTH_28+i) + (k*HEIGHT_28*WIDTH_28)]);
 			}
 			//printf("\n");
 		}
