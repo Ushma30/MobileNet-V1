@@ -56,6 +56,8 @@ void getBias(float* f, char filename[], int size);
 void getWeights(float* aryWeight, char filename[], int size);
 void arrangWeights(float* ip, float* op);
 void arrangWeightsDepthwise(float* ip, float* op, int fsize);
+void arrangWeightsPointwise(float* ip, float* op, int fsize, int totalFilter);
+
 long LoadOpenCLKernel(char const* path, char **buf)
 {
 	FILE  *fp;
@@ -815,7 +817,17 @@ void arrangWeightsDepthwise(float* ip, float* op, int fsize)
 
     }
 }
-
+void arrangWeightsPointwise(float* ip, float* op, int fsize, int totalFilter)
+{
+    int nof, channel,ele_per_filter,i=0;
+    for (nof=0; nof<totalFilter; nof++)
+    {
+        for(ele_per_filter=0;ele_per_filter<fsize;ele_per_filter++,i++)
+        {
+            op[i]=ip[(ele_per_filter*totalFilter)+nof];   
+        }
+    }
+}
 //This is the main function
 int main(int argc, char** argv) {
 
