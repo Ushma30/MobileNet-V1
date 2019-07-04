@@ -28,6 +28,7 @@
 #define NPY_COMMON_HEADER_OFFSET		10 //offset to the Size of Header in npy file (npy - numpy array file) 
 unsigned char image[HEIGHT_0 * WIDTH_0 * FDIM]; //image with 3 input channels
 float* filter;
+float* filter_proper;
 int err;
 int layer_count = 0;
 
@@ -53,6 +54,7 @@ cl_platform_id platform_ids[100];
 int decode_image(unsigned char frame[HEIGHT_0 * WIDTH_0 * FDIM], char filename[]);
 void getBias(float* f, char filename[], int size);
 void getWeights(float* aryWeight, char filename[], int size);
+void arrangWeights(float* ip, float* op);
 
 long LoadOpenCLKernel(char const* path, char **buf)
 {
@@ -309,6 +311,9 @@ void convStandard (float* opfm) {
 
 	//Get filter values
     getWeights(filter,"weights_float/conv1_kernel_0",(IP_FM_1*FDIM*FDIM*FDIM));
+
+	//reaarange weights in proper format
+	arrangWeights(filter, filter_proper);
 
 	//Create buffer for device
 	d_image_r = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_r, &err);
@@ -764,11 +769,42 @@ void softmax (float* ipfm)
     printf("Layer 30 softmax Done\n");
 	printf("Prediction - %d\t %f\n", maxIndex , max);
 }
+
+/**
+ * @brief  reaarange the weights in the format required by the kernel
+ * @author  Kausutbh
+ * @date July 4, 2019
+ * @param 1. float* ip
+ *        2. float* op
+ * @return None
+ */
+void arrangWeights(float* ip, float* op)
+{
+    int nof, channel,ele_per_filter,i=0;
+    for (nof=0; nof < 32 ; nof++)
+    {
+        for(ele_per_filter=0;ele_per_filter<9;ele_per_filter++,i++)
+        {
+            op[i]=ip[0+(ele_per_filter*96)+nof];   
+        }
+        for(ele_per_filter=0;ele_per_filter<9;ele_per_filter++,i++)
+        {
+            op[i]=ip[32+(ele_per_filter*96)+nof];
+        }
+        for(ele_per_filter=0;ele_per_filter<9;ele_per_filter++,i++)
+        {
+            op[i]=ip[64+(ele_per_filter*96)+nof];
+        }
+    }
+
+}
 //This is the main function
 int main(int argc, char** argv) {
 
     
 	filter = (float*) malloc(FILTER_MAX*FILTER_MAX*FDIM*FDIM*FDIM*sizeof(float));
+	filter_proper = (float*) malloc(FILTER_MAX*FILTER_MAX*FDIM*FDIM*FDIM*sizeof(float));
+
 	float* op_fm_0 = (float*) malloc(IP_FM_1 * HEIGHT_1 * WIDTH_1 * sizeof(float)); //output feature map for layer 0
 	int i,j,k;
 
