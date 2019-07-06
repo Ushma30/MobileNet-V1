@@ -315,7 +315,7 @@ void convStandard (unsigned char* opfm) {
     getBias(h_bias,"bias/BConv2d_0",IP_FM_1);
 
 	//Read pixel values from input image
-	decode_image(image,"tiger.ppm"); 
+	decode_image(image,"dog.ppm"); 
 
 	//separate R,G and B pixels
 	seperateChannels(image, image_r, image_g, image_b);
@@ -753,7 +753,7 @@ void fullyConectedLayer( unsigned char* ipfm, unsigned char* opfm, char* fileNam
     {
         for(j = 0; j < ELEMENTS; j++)
         {
-            sum += (ipfm[j] * (filter[j] - Z2_28));
+            sum += (ipfm[j] * (filter[j + (CLASSES * i)] - Z2_28));
 			// if (j == 0)
 			// 	printf("ip %d + fil %d = sum %d \n", ipfm[j],(filter[j] - Z2_28), sum );
         }
