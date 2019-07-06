@@ -307,7 +307,6 @@ void convStandard (float* opfm) {
 
 	//Read pixel values from input image
 	decode_image(image,"testData/tiger.ppm"); 
-
 	//separate R,G and B pixels
 	seperateChannels(image, image_r, image_g, image_b);
 
@@ -742,6 +741,7 @@ void fullyConectedLayer( float* ipfm, float* opfm, char* fileName_bias , char* f
         for(j = 0; j < ELEMENTS; j++)
         {
             sum += ipfm[j] * filter[j + (CLASSES * i)];
+
 			// if (j == 0)
 			// 	printf("ip %d + fil %d = sum %d \n", ipfm[j],(filter[j] - Z2_28), sum );
         }
