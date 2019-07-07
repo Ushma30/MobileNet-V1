@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <float.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -212,13 +213,21 @@ int openClCreateKernel() {
 	}
 }
 
-void seperateChannels(unsigned char* imd,unsigned char* im1,unsigned char* im2,unsigned char* im3){
+void seperateChannels(unsigned char* imd, unsigned char* im1, unsigned char* im2, unsigned char* im3){
     int i,j;    
     for(i=0,j=0; i<HEIGHT_0*WIDTH_0; i++,j+=3){
         im1[i] = imd[j];
         im2[i] = imd[j+1];
         im3[i] = imd[j+2];                
     }
+}
+
+void uintToFloat(unsigned char* im, float* imf) {
+	int i;
+	float offset = 127.5;
+	for (i = 0; i < HEIGHT_0 * WIDTH_0; i++) {
+		imf[i] = (im[i] / offset) - 1;
+	}
 }
 
 /**
@@ -270,7 +279,6 @@ int decode_image(unsigned char frame[HEIGHT_0 * WIDTH_0 * FDIM],char filename[])
 	fclose(pFile);
 	return 0;
 }
-//Function to load OpenCL kernel - taken from code given by T.A. Arnab 
 
 
 void display_data(unsigned char* data,int num) {
@@ -295,6 +303,11 @@ void convStandard (float* opfm) {
 	unsigned char* image_g = (unsigned char*) malloc(HEIGHT_0 * WIDTH_0 * sizeof(unsigned char)); //G channel
 	unsigned char* image_b = (unsigned char*) malloc(HEIGHT_0 * WIDTH_0 * sizeof(unsigned char)); //B channel
 
+	//Image data in float
+	float* image_r_f = (float*) malloc(HEIGHT_0 * WIDTH_0 * sizeof(float)); //R channel in float
+	float* image_g_f = (float*) malloc(HEIGHT_0 * WIDTH_0 * sizeof(float)); //G channel in float
+	float* image_b_f = (float*) malloc(HEIGHT_0 * WIDTH_0 * sizeof(float)); //B channel in float
+
 	int i,j,k;
 
 	/*Bias*/
@@ -310,16 +323,31 @@ void convStandard (float* opfm) {
 	//separate R,G and B pixels
 	seperateChannels(image, image_r, image_g, image_b);
 
+	// printf("R data in uint8 ");
+	// for (i = 0; i < HEIGHT_0*WIDTH_0; i++){
+	// 	printf("%d\t", image_r[i]);
+	// }
+
+	//Convert uint8 image data to float
+	uintToFloat(image_r, image_r_f);
+	uintToFloat(image_g, image_g_f);
+	uintToFloat(image_b, image_b_f);
+	
+	// printf("R data in float ");
+	// for (i = 0; i < HEIGHT_0*WIDTH_0; i++){
+	// 	printf("%.*g\t", image_r_f[i]);
+	// }
+
 	//Get filter values
-    getWeights(filter,"weights_tf/Conv2d_0.npy",(IP_FM_1*FDIM*FDIM*FDIM));
+    getWeights(filter,"weights_float/conv1_kernel_0",(IP_FM_1*FDIM*FDIM*FDIM));
 
 	//reaarange weights in proper format
 	arrangWeights(filter, filter_proper);
 
 	//Create buffer for device
-	d_image_r = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_r, &err);
-	d_image_g = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_g, &err);
-	d_image_b = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_b, &err);
+	d_image_r = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(float), image_r_f, &err);
+	d_image_g = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(float), image_g_f, &err);
+	d_image_b = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(float), image_b_f, &err);
 	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, (HEIGHT_1)*(WIDTH_1)*IP_FM_1*sizeof(float), NULL, &err);
 	d_filter = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, IP_FM_1*FDIM*FDIM*FDIM*sizeof(float), filter, &err);
 	d_bias = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, IP_FM_1*sizeof(float), h_bias, &err);
@@ -330,9 +358,9 @@ void convStandard (float* opfm) {
 		exit(1);
 	}    
 	
-	err = clEnqueueWriteBuffer(commands, d_image_r, CL_TRUE, 0, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_r, 0, NULL, NULL);
-	err |= clEnqueueWriteBuffer(commands, d_image_g, CL_TRUE, 0, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_g, 0, NULL, NULL);   
-	err |= clEnqueueWriteBuffer(commands, d_image_b, CL_TRUE, 0, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_b, 0, NULL, NULL);   
+	err = clEnqueueWriteBuffer(commands, d_image_r, CL_TRUE, 0, HEIGHT_0*WIDTH_0*sizeof(float), image_r_f, 0, NULL, NULL);
+	err |= clEnqueueWriteBuffer(commands, d_image_g, CL_TRUE, 0, HEIGHT_0*WIDTH_0*sizeof(float), image_g_f, 0, NULL, NULL);   
+	err |= clEnqueueWriteBuffer(commands, d_image_b, CL_TRUE, 0, HEIGHT_0*WIDTH_0*sizeof(float), image_b_f, 0, NULL, NULL);   
 	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, IP_FM_1*FDIM*FDIM*FDIM*sizeof(float), filter, 0, NULL, NULL);   
 	err |= clEnqueueWriteBuffer(commands, d_bias, CL_TRUE, 0, IP_FM_1*sizeof(float), h_bias, 0, NULL, NULL);   
 
@@ -396,17 +424,17 @@ void convStandard (float* opfm) {
 	//Get kernel execution time
 	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
 
-	// printf("Data for Layer %d\n", layer_count);
+	printf("Data for Layer %d\n", layer_count);
 	 
-	// for (k = 0; k < 32; k++){
-	// 	for (j = 0; j < 20; j++){
-	// 		for(i = 0; i < 10; i++){
-	// 			printf("%f\t", opfm[(j*112+i) + (k*112*112)]);
-	// 		}
-	// 		printf("\n");
-	// 	}
-    // printf("\n");
-	// }	
+	for (k = 0; k < 32; k++){
+		for (j = 0; j < 10; j++){
+			for(i = 0; i < 10; i++){
+				printf("%f\t", opfm[(j*112+i) + (k*112*112)]);
+			}
+			printf("\n");
+		}
+    printf("\n");
+	}	
 	
 	free(image_r);
 	free(image_g);
@@ -763,7 +791,7 @@ void softmax (float* ipfm)
     {
         expo[i] = exp(ipfm[i]);
         sum += expo[i];
-		printf("i = %d \t ipfm = %f\t%f\n", i, ipfm[i], expo[i]);
+		//printf("i = %d \t ipfm = %f\t%f\n", i, ipfm[i], expo[i]);
     }
 	printf("Sum = %f\n", sum);
     for(i = 0; i < CLASSES_SOFTMAX; i++)
@@ -852,157 +880,157 @@ int main(int argc, char** argv) {
 	
 	layer_count++;
 	float* op_fm_1 = (float*) malloc(IP_FM_2 * HEIGHT_2 * WIDTH_2 * sizeof(float)); //output feature map for layer 1
-	convDepthwise(op_fm_0, op_fm_1, "bias/BConv2d_1_depthwise", "weights_tf/Conv2d_1_depthwise.npy", HEIGHT_1, WIDTH_1, HEIGHT_2, WIDTH_2, IP_FM_1, IP_FM_2, 1);
+	convDepthwise(op_fm_0, op_fm_1, "bias/BConv2d_1_depthwise", "weights_float/conv_dw_1_depthwise_kernel_0", HEIGHT_1, WIDTH_1, HEIGHT_2, WIDTH_2, IP_FM_1, IP_FM_2, 1);
 	
 	//Layer 2 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_2 = (float*) malloc(IP_FM_3 * HEIGHT_3 * WIDTH_3 * sizeof(float));	//output feature map for layer 2
-	convPointwise(op_fm_1, op_fm_2, "bias/BConv2d_1_pointwise", "weights_tf/Conv2d_1_pointwise.npy", HEIGHT_2, WIDTH_2, HEIGHT_3, WIDTH_3, IP_FM_2, IP_FM_3);
+	convPointwise(op_fm_1, op_fm_2, "bias/BConv2d_1_pointwise", "weights_float/conv_pw_1_kernel_0", HEIGHT_2, WIDTH_2, HEIGHT_3, WIDTH_3, IP_FM_2, IP_FM_3);
 
 	//Layer 3 Depth-Wise Convolution
 
 	layer_count++;
 	float* op_fm_3 = (float*) malloc(IP_FM_4 * HEIGHT_4 * WIDTH_4 * sizeof(float)); //output feature map for layer 3
-	convDepthwise(op_fm_2, op_fm_3, "bias/BConv2d_2_depthwise", "weights_tf/Conv2d_2_depthwise.npy", HEIGHT_3, WIDTH_3, HEIGHT_4, WIDTH_4, IP_FM_3, IP_FM_4, 2);
+	convDepthwise(op_fm_2, op_fm_3, "bias/BConv2d_2_depthwise", "weights_float/conv_dw_2_depthwise_kernel_0", HEIGHT_3, WIDTH_3, HEIGHT_4, WIDTH_4, IP_FM_3, IP_FM_4, 2);
 
 	//Layer 4 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_4 = (float*) malloc(IP_FM_5 * HEIGHT_5 * WIDTH_5 * sizeof(float));	//output feature map for layer 4
-	convPointwise(op_fm_3, op_fm_4, "bias/BConv2d_2_pointwise", "weights_tf/Conv2d_2_pointwise.npy", HEIGHT_4, WIDTH_4, HEIGHT_5, WIDTH_5, IP_FM_4, IP_FM_5);
+	convPointwise(op_fm_3, op_fm_4, "bias/BConv2d_2_pointwise", "weights_float/conv_pw_2_kernel_0", HEIGHT_4, WIDTH_4, HEIGHT_5, WIDTH_5, IP_FM_4, IP_FM_5);
 
 	//Layer 5 Depth-Wise Convolution
 
 	layer_count++;
 	float* op_fm_5 = (float*) malloc(IP_FM_6 * HEIGHT_6 * WIDTH_6 * sizeof(float)); //output feature map for layer 5
-	convDepthwise(op_fm_4, op_fm_5, "bias/BConv2d_3_depthwise", "weights_tf/Conv2d_3_depthwise.npy", HEIGHT_5, WIDTH_5, HEIGHT_6, WIDTH_6, IP_FM_5, IP_FM_6, 1);
+	convDepthwise(op_fm_4, op_fm_5, "bias/BConv2d_3_depthwise", "weights_float/conv_dw_3_depthwise_kernel_0", HEIGHT_5, WIDTH_5, HEIGHT_6, WIDTH_6, IP_FM_5, IP_FM_6, 1);
 
 	//Layer 6 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_6 = (float*) malloc(IP_FM_7 * HEIGHT_7 * WIDTH_7 * sizeof(float));	//output feature map for layer 6
-	convPointwise(op_fm_5, op_fm_6, "bias/BConv2d_3_pointwise", "weights_tf/Conv2d_3_pointwise.npy", HEIGHT_6, WIDTH_6, HEIGHT_7, WIDTH_7, IP_FM_6, IP_FM_7);
+	convPointwise(op_fm_5, op_fm_6, "bias/BConv2d_3_pointwise", "weights_float/conv_pw_3_kernel_0", HEIGHT_6, WIDTH_6, HEIGHT_7, WIDTH_7, IP_FM_6, IP_FM_7);
 
 	//Layer 7 Depth-Wise Convolution
 
 	layer_count++;
 	float* op_fm_7 = (float*) malloc(IP_FM_8 * HEIGHT_8 * WIDTH_8 * sizeof(float)); //output feature map for layer 7
-	convDepthwise(op_fm_6, op_fm_7, "bias/BConv2d_4_depthwise", "weights_tf/Conv2d_4_depthwise.npy", HEIGHT_7, WIDTH_7, HEIGHT_8, WIDTH_8, IP_FM_7, IP_FM_8, 2);
+	convDepthwise(op_fm_6, op_fm_7, "bias/BConv2d_4_depthwise", "weights_float/conv_dw_4_depthwise_kernel_0", HEIGHT_7, WIDTH_7, HEIGHT_8, WIDTH_8, IP_FM_7, IP_FM_8, 2);
 
 	//Layer 8 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_8 = (float*) malloc(IP_FM_9 * HEIGHT_9 * WIDTH_9 * sizeof(float));	//output feature map for layer 8
-	convPointwise(op_fm_7, op_fm_8, "bias/BConv2d_4_pointwise", "weights_tf/Conv2d_4_pointwise.npy", HEIGHT_8, WIDTH_8, HEIGHT_9, WIDTH_9, IP_FM_8, IP_FM_9);
+	convPointwise(op_fm_7, op_fm_8, "bias/BConv2d_4_pointwise", "weights_float/conv_pw_4_kernel_0", HEIGHT_8, WIDTH_8, HEIGHT_9, WIDTH_9, IP_FM_8, IP_FM_9);
 
 	//Layer 9 Depth-Wise Convolution
 
 	layer_count++;
 	float* op_fm_9 = (float*) malloc(IP_FM_10 * HEIGHT_10 * WIDTH_10 * sizeof(float)); //output feature map for layer 9
-	convDepthwise(op_fm_8, op_fm_9, "bias/BConv2d_5_depthwise", "weights_tf/Conv2d_5_depthwise.npy", HEIGHT_9, WIDTH_9, HEIGHT_10, WIDTH_10, IP_FM_9, IP_FM_10, 1);
+	convDepthwise(op_fm_8, op_fm_9, "bias/BConv2d_5_depthwise", "weights_float/conv_dw_5_depthwise_kernel_0", HEIGHT_9, WIDTH_9, HEIGHT_10, WIDTH_10, IP_FM_9, IP_FM_10, 1);
 
 	//Layer 10 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_10 = (float*) malloc(IP_FM_11 * HEIGHT_11 * WIDTH_11 * sizeof(float));	//output feature map for layer 10
-	convPointwise(op_fm_9, op_fm_10, "bias/BConv2d_5_pointwise", "weights_tf/Conv2d_5_pointwise.npy", HEIGHT_10, WIDTH_10, HEIGHT_11, WIDTH_11, IP_FM_10, IP_FM_11);
+	convPointwise(op_fm_9, op_fm_10, "bias/BConv2d_5_pointwise", "weights_float/conv_pw_5_kernel_0", HEIGHT_10, WIDTH_10, HEIGHT_11, WIDTH_11, IP_FM_10, IP_FM_11);
 
 	//Layer 11 Depth-Wise Convolution
 
 	layer_count++;
 	float* op_fm_11 = (float*) malloc(IP_FM_12 * HEIGHT_12 * WIDTH_12 * sizeof(float)); //output feature map for layer 11
-	convDepthwise(op_fm_10, op_fm_11, "bias/BConv2d_6_depthwise", "weights_tf/Conv2d_6_depthwise.npy", HEIGHT_11, WIDTH_11, HEIGHT_12, WIDTH_12, IP_FM_11, IP_FM_12, 2);
+	convDepthwise(op_fm_10, op_fm_11, "bias/BConv2d_6_depthwise", "weights_float/conv_dw_6_depthwise_kernel_0", HEIGHT_11, WIDTH_11, HEIGHT_12, WIDTH_12, IP_FM_11, IP_FM_12, 2);
 
 	//Layer 12 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_12 = (float*) malloc(IP_FM_13 * HEIGHT_13 * WIDTH_13 * sizeof(float));	//output feature map for layer 12
-	convPointwise(op_fm_11, op_fm_12, "bias/BConv2d_6_pointwise", "weights_tf/Conv2d_6_pointwise.npy", HEIGHT_12, WIDTH_12, HEIGHT_13, WIDTH_13, IP_FM_12, IP_FM_13);
+	convPointwise(op_fm_11, op_fm_12, "bias/BConv2d_6_pointwise", "weights_float/conv_pw_6_kernel_0", HEIGHT_12, WIDTH_12, HEIGHT_13, WIDTH_13, IP_FM_12, IP_FM_13);
 
 	//Layer 13 Depth-Wise Convolution
 
 	layer_count++;
 	float* op_fm_13 = (float*) malloc(IP_FM_14 * HEIGHT_14 * WIDTH_14 * sizeof(float)); //output feature map for layer 13
-	convDepthwise(op_fm_12, op_fm_13, "bias/BConv2d_7_depthwise", "weights_tf/Conv2d_7_depthwise.npy", HEIGHT_13, WIDTH_13, HEIGHT_14, WIDTH_14, IP_FM_13, IP_FM_14, 1);
+	convDepthwise(op_fm_12, op_fm_13, "bias/BConv2d_7_depthwise", "weights_float/conv_dw_7_depthwise_kernel_0", HEIGHT_13, WIDTH_13, HEIGHT_14, WIDTH_14, IP_FM_13, IP_FM_14, 1);
 
 	//Layer 14 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_14 = (float*) malloc(IP_FM_15 * HEIGHT_15 * WIDTH_15 * sizeof(float));	//output feature map for layer 14
-	convPointwise(op_fm_13, op_fm_14, "bias/BConv2d_7_pointwise", "weights_tf/Conv2d_7_pointwise.npy", HEIGHT_14, WIDTH_14, HEIGHT_15, WIDTH_15, IP_FM_14, IP_FM_15);
+	convPointwise(op_fm_13, op_fm_14, "bias/BConv2d_7_pointwise", "weights_float/conv_pw_7_kernel_0", HEIGHT_14, WIDTH_14, HEIGHT_15, WIDTH_15, IP_FM_14, IP_FM_15);
 
 	//Layer 15 Depth-Wise Convolution
 
 	layer_count++;
 	float* op_fm_15 = (float*) malloc(IP_FM_16 * HEIGHT_16 * WIDTH_16 * sizeof(float)); //output feature map for layer 15
-	convDepthwise(op_fm_14, op_fm_15, "bias/BConv2d_8_depthwise", "weights_tf/Conv2d_8_depthwise.npy", HEIGHT_15, WIDTH_15, HEIGHT_16, WIDTH_16, IP_FM_15, IP_FM_16, 1);
+	convDepthwise(op_fm_14, op_fm_15, "bias/BConv2d_8_depthwise", "weights_float/conv_dw_8_depthwise_kernel_0", HEIGHT_15, WIDTH_15, HEIGHT_16, WIDTH_16, IP_FM_15, IP_FM_16, 1);
 
 	//Layer 16 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_16 = (float*) malloc(IP_FM_17 * HEIGHT_17 * WIDTH_17 * sizeof(float));	//output feature map for layer 16
-	convPointwise(op_fm_15, op_fm_16, "bias/BConv2d_8_pointwise", "weights_tf/Conv2d_8_pointwise.npy", HEIGHT_16, WIDTH_16, HEIGHT_17, WIDTH_17, IP_FM_16, IP_FM_17);
+	convPointwise(op_fm_15, op_fm_16, "bias/BConv2d_8_pointwise", "weights_float/conv_pw_8_kernel_0", HEIGHT_16, WIDTH_16, HEIGHT_17, WIDTH_17, IP_FM_16, IP_FM_17);
 
 	//Layer 17 Depth-Wise Convolution
 
 	layer_count++;
 	float* op_fm_17 = (float*) malloc(IP_FM_18 * HEIGHT_18 * WIDTH_18 * sizeof(float)); //output feature map for layer 17
-	convDepthwise(op_fm_16, op_fm_17, "bias/BConv2d_9_depthwise", "weights_tf/Conv2d_9_depthwise.npy", HEIGHT_17, WIDTH_17, HEIGHT_18, WIDTH_18, IP_FM_17, IP_FM_18, 1);
+	convDepthwise(op_fm_16, op_fm_17, "bias/BConv2d_9_depthwise", "weights_float/conv_dw_9_depthwise_kernel_0", HEIGHT_17, WIDTH_17, HEIGHT_18, WIDTH_18, IP_FM_17, IP_FM_18, 1);
 
 	//Layer 18 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_18 = (float*) malloc(IP_FM_19 * HEIGHT_19 * WIDTH_19 * sizeof(float));	//output feature map for layer 18
-	convPointwise(op_fm_17, op_fm_18, "bias/BConv2d_9_pointwise", "weights_tf/Conv2d_9_pointwise.npy", HEIGHT_18, WIDTH_18, HEIGHT_19, WIDTH_19, IP_FM_18, IP_FM_19);
+	convPointwise(op_fm_17, op_fm_18, "bias/BConv2d_9_pointwise", "weights_float/conv_pw_9_kernel_0", HEIGHT_18, WIDTH_18, HEIGHT_19, WIDTH_19, IP_FM_18, IP_FM_19);
 
 	//Layer 19 Depth-Wise Convolution
 
 	layer_count++;
 	float* op_fm_19 = (float*) malloc(IP_FM_20 * HEIGHT_20 * WIDTH_20 * sizeof(float)); //output feature map for layer 19
-	convDepthwise(op_fm_18, op_fm_19, "bias/BConv2d_10_depthwise", "weights_tf/Conv2d_10_depthwise.npy", HEIGHT_19, WIDTH_19, HEIGHT_20, WIDTH_20, IP_FM_19, IP_FM_20, 1);
+	convDepthwise(op_fm_18, op_fm_19, "bias/BConv2d_10_depthwise", "weights_float/conv_dw_10_depthwise_kernel_0", HEIGHT_19, WIDTH_19, HEIGHT_20, WIDTH_20, IP_FM_19, IP_FM_20, 1);
 
 	//Layer 20 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_20 = (float*) malloc(IP_FM_21 * HEIGHT_21 * WIDTH_21 * sizeof(float));	//output feature map for layer 20
-	convPointwise(op_fm_19, op_fm_20, "bias/BConv2d_10_pointwise", "weights_tf/Conv2d_10_pointwise.npy", HEIGHT_20, WIDTH_20, HEIGHT_21, WIDTH_21, IP_FM_20, IP_FM_21);
+	convPointwise(op_fm_19, op_fm_20, "bias/BConv2d_10_pointwise", "weights_float/conv_pw_10_kernel_0", HEIGHT_20, WIDTH_20, HEIGHT_21, WIDTH_21, IP_FM_20, IP_FM_21);
 
 	//Layer 21 Depth-Wise Convolution
 
 	layer_count++;
 	float* op_fm_21 = (float*) malloc(IP_FM_22 * HEIGHT_22 * WIDTH_22 * sizeof(float)); //output feature map for layer 21
-	convDepthwise(op_fm_20, op_fm_21, "bias/BConv2d_11_depthwise", "weights_tf/Conv2d_11_depthwise.npy", HEIGHT_21, WIDTH_21, HEIGHT_22, WIDTH_22, IP_FM_21, IP_FM_22, 1);
+	convDepthwise(op_fm_20, op_fm_21, "bias/BConv2d_11_depthwise", "weights_float/conv_dw_11_depthwise_kernel_0", HEIGHT_21, WIDTH_21, HEIGHT_22, WIDTH_22, IP_FM_21, IP_FM_22, 1);
 
 	//Layer 22 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_22 = (float*) malloc(IP_FM_23 * HEIGHT_23 * WIDTH_23 * sizeof(float));	//output feature map for layer 22
-	convPointwise(op_fm_21, op_fm_22, "bias/BConv2d_11_pointwise", "weights_tf/Conv2d_11_pointwise.npy", HEIGHT_22, WIDTH_22, HEIGHT_23, WIDTH_23, IP_FM_22, IP_FM_23);
+	convPointwise(op_fm_21, op_fm_22, "bias/BConv2d_11_pointwise", "weights_float/conv_pw_11_kernel_0", HEIGHT_22, WIDTH_22, HEIGHT_23, WIDTH_23, IP_FM_22, IP_FM_23);
 
 	//Layer 23 Depth-Wise Convolution
 
 	layer_count++;
 	float* op_fm_23 = (float*) malloc(IP_FM_24 * HEIGHT_24 * WIDTH_24 * sizeof(float)); //output feature map for layer 23
-	convDepthwise(op_fm_22, op_fm_23, "bias/BConv2d_12_depthwise", "weights_tf/Conv2d_12_depthwise.npy", HEIGHT_23, WIDTH_23, HEIGHT_24, WIDTH_24, IP_FM_23, IP_FM_24, 2);
+	convDepthwise(op_fm_22, op_fm_23, "bias/BConv2d_12_depthwise", "weights_float/conv_dw_12_depthwise_kernel_0", HEIGHT_23, WIDTH_23, HEIGHT_24, WIDTH_24, IP_FM_23, IP_FM_24, 2);
 
 	//Layer 24 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_24 = (float*) malloc(IP_FM_25 * HEIGHT_25 * WIDTH_25 * sizeof(float));	//output feature map for layer 24
-	convPointwise(op_fm_23, op_fm_24, "bias/BConv2d_12_pointwise", "weights_tf/Conv2d_12_pointwise.npy", HEIGHT_24, WIDTH_24, HEIGHT_25, WIDTH_25, IP_FM_24, IP_FM_25);
+	convPointwise(op_fm_23, op_fm_24, "bias/BConv2d_12_pointwise", "weights_float/conv_pw_12_kernel_0", HEIGHT_24, WIDTH_24, HEIGHT_25, WIDTH_25, IP_FM_24, IP_FM_25);
 
 	//Layer 25 Depth-Wise Convolution
 
 	layer_count++;
 	float* op_fm_25 = (float*) malloc(IP_FM_26 * HEIGHT_26 * WIDTH_26 * sizeof(float)); //output feature map for layer 25
-	convDepthwise(op_fm_24, op_fm_25, "bias/BConv2d_13_depthwise", "weights_tf/Conv2d_13_depthwise.npy", HEIGHT_25, WIDTH_25, HEIGHT_26, WIDTH_26, IP_FM_25, IP_FM_26, 2);
+	convDepthwise(op_fm_24, op_fm_25, "bias/BConv2d_13_depthwise", "weights_float/conv_dw_13_depthwise_kernel_0", HEIGHT_25, WIDTH_25, HEIGHT_26, WIDTH_26, IP_FM_25, IP_FM_26, 2);
 
 	//Layer 26 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_26 = (float*) malloc(IP_FM_27 * HEIGHT_27 * WIDTH_27 * sizeof(float));	//output feature map for layer 26
-	convPointwise(op_fm_25, op_fm_26, "bias/BConv2d_13_pointwise", "weights_tf/Conv2d_13_pointwise.npy", HEIGHT_26, WIDTH_26, HEIGHT_27, WIDTH_27, IP_FM_26, IP_FM_27);
+	convPointwise(op_fm_25, op_fm_26, "bias/BConv2d_13_pointwise", "weights_float/conv_pw_13_kernel_0", HEIGHT_26, WIDTH_26, HEIGHT_27, WIDTH_27, IP_FM_26, IP_FM_27);
 	
 	// for (k = 0; k < IP_FM_27; k++){
 	// 	for (j = 0; j < 7; j++){
@@ -1026,7 +1054,7 @@ int main(int argc, char** argv) {
 	printf("Avg pool done");
 	layer_count++;
 	float* op_fm_28 = (float*) malloc(CLASSES_SOFTMAX * HEIGHT_29 * WIDTH_29 * sizeof(float));	//output feature map for layer 28
-	fullyConectedLayer(op_fm_27, op_fm_28, "bias/BConv2d_fullyconnected", "weights_tf/Conv2d_fullyconnected.npy", CLASSES, ELEMENTS);
+	fullyConectedLayer(op_fm_27, op_fm_28, "bias/BConv2d_fullyconnected", "weights_float/Conv2d_fullyconnected.npy", CLASSES, ELEMENTS);
 	// for (k = 0; k < CLASSES; k++){
 	// 	for (j = 0; j < 1; j++){
 	// 		for(i = 0; i < 1; i++){
