@@ -19,60 +19,71 @@ __kernel void convolute(__global unsigned char* output,
 	
 		int output_shift = (rows / 2) * (cols / 2) * filter_count;
 		
-		for(i = -half_filtersize; i<= half_filtersize; i++){
+		for(i = 0; i < filtersize; i++){
 			yindex = ty * stride + i;
-			for(j = -half_filtersize; j<= half_filtersize; j++,findex++){
+			for(j = 0; j < filtersize; j++,findex++){
 				xindex = tx * stride + j;
-				if (yindex < 0 || xindex < 0) {
-					sum +=  0 * filter_k[findex];
-				}
-				else {
-					/*if (tx == 4 && ty == 2) {
-						printf("Image r: %d\t%d\n",(inp_image_r[yindex * get_global_size(0) * stride + xindex] - Z1) * (filter_k[findex] - Z2),filter_k[findex]);
-					}*/
+				// if (yindex > 0 || xindex < 0) {
+				// 	sum +=  0 * filter_k[findex];
+				// }
+				// else {
+					if ((tx == 0 && ty == 0) && filter_count == 31) {
+						printf("Image r: %d\t filter index %d \t%d\n",(inp_image_r[yindex * get_global_size(0) * stride + xindex] - Z1), findex, (filter_k[findex]-Z2));
+					}
  						sum +=  (inp_image_r[yindex * get_global_size(0) * stride + xindex] - Z1) * (filter_k[findex] - Z2);
-				}
+				// }
 			}
 		}
-		for(i = -half_filtersize; i<= half_filtersize; i++){
+		for(i = 0; i < filtersize; i++){
 			yindex = ty * stride + i;
-			for(j = -half_filtersize; j<= half_filtersize; j++,findex++){
+			for(j = 0; j < filtersize; j++,findex++){
 				xindex = tx * stride + j;
-				if (yindex < 0 || xindex < 0) {
-					sum +=  0 * filter_k[findex];
-				}
-				else {
-					/*if (tx == 4 && ty == 2) {
-						printf("Img g: %d\t%d\n",(inp_image_g[yindex * get_global_size(0) * stride + xindex] - Z1) * (filter_k[findex] - Z2),filter_k[findex]);
-					}*/
+				// if (yindex < 0 || xindex < 0) {
+				// 	sum +=  0 * filter_k[findex];
+				// }
+				// else {
+					if ((tx == 0 && ty == 0) && filter_count == 31) {
+						printf("Image g: %d\t filter index %d \t%d\n",(inp_image_g[yindex * get_global_size(0) * stride + xindex] - Z1), findex, (filter_k[findex]-Z2));
+					}
  					sum +=  (inp_image_g[yindex * get_global_size(0) * stride + xindex] - Z1) * (filter_k[findex] - Z2);
-				}
+				// }
 			}
 		}
-		for(i = -half_filtersize; i<= half_filtersize; i++){
+		for(i = 0; i < filtersize; i++){
 			yindex = ty * stride + i;
-			for(j = -half_filtersize; j<= half_filtersize; j++,findex++){
+			for(j = 0; j < filtersize; j++,findex++){
 				xindex = tx * stride + j;
-				if (yindex < 0 || xindex < 0) {
-					sum +=  0 * filter_k[findex];
-				}
-				else {
-					/*if (tx == 4 && ty == 2) {
-						printf("Img b: %d\t%d\n",(inp_image_b[yindex * get_global_size(0) * stride + xindex] - Z1) * (filter_k[findex] - Z2),filter_k[findex]);
-					}*/
+				// if (yindex < 0 || xindex < 0) {
+				// 	sum +=  0 * filter_k[findex];
+				// }
+				// else {
+					if ((tx == 0 && ty == 0) && filter_count == 31) {
+						printf("Image b: %d\t filter index %d \t%d\n",(inp_image_b[yindex * get_global_size(0) * stride + xindex] - Z1), findex, (filter_k[findex]-Z2));
+					}
  					sum +=  (inp_image_b[yindex * get_global_size(0) * stride + xindex] - Z1) * (filter_k[findex] - Z2);
 				}
-			}
+			// }
 		}
-		
-		sum = (int)((M * sum) + (bias[filter_count] * Sbias));
+		if (tx == 0 && ty == 0 && filter_count == 31) {
+			//printf("M: %f\tbias: %f\t\n",M,Sbias);
+			//printf("Summ: %d\t\n",(int)((M * sum) + (bias[filter_count] * Sbias)));
+			printf("B Sum: %d\n",sum);
+			printf("M: %f\n",M);
+			printf("bias: %d\n",bias[filter_count]);
+			printf("Sbias: %f\n",Sbias);
+			printf("(M * sum): %f\n",(M * sum));
+			printf("(bias[filter_count] * Sbias): %f\n",(bias[filter_count] * Sbias));
+			printf("final %d\n",((int)(M * sum) + (int)(bias[filter_count] * Sbias)));
+		}
+
+		sum = ((int)(M * sum) + (int)(bias[filter_count] * Sbias));
 		if (sum <= 0) {
 			sum = 0;		
 		}
-		if (tx == 0 && ty == 0) {
+		if (tx == 0 && ty == 0 && filter_count == 31) {
 			//printf("M: %f\tbias: %f\t\n",M,Sbias);
 			//printf("Summ: %d\t\n",(int)((M * sum) + (bias[filter_count] * Sbias)));
-			printf("Sum: %d\t\n",sum);
+			printf("A Sum: %d\n",(sum));
 		}
 
 		

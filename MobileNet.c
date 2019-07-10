@@ -315,7 +315,7 @@ void convStandard (unsigned char* opfm) {
     getBias(h_bias,"bias/BConv2d_0",IP_FM_1);
 
 	//Read pixel values from input image
-	decode_image(image,"dog.ppm"); 
+	decode_image(image,"tiger.ppm"); 
 
 	//separate R,G and B pixels
 	seperateChannels(image, image_r, image_g, image_b);
@@ -412,8 +412,8 @@ void convStandard (unsigned char* opfm) {
 	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
 
 	printf("Data for Layer %d\n", layer_count);
-/* 
-	for (k = 0; k < 32; k++){
+ 
+	for (k = 0; k <= 0; k++){
 		for (j = 0; j < 20; j++){
 			for(i = 0; i < 20; i++){
 				printf("%d\t", opfm[(j*112+i) + (k*112*112)]);
@@ -422,7 +422,7 @@ void convStandard (unsigned char* opfm) {
 		}
     printf("\n");
 	}	
-*/
+
 	free(image_r);
 	free(image_g);
 	free(image_b);
@@ -775,7 +775,7 @@ void softmax (unsigned char* ipfm)
     {
         expo[i] = exp(ipfm[i]);
         sum += expo[i];
-		printf("i = %d \t ipfm %d %f\n", i,ipfm[i],expo[i]);
+		//printf("i = %d \t ipfm %d %f\n", i,ipfm[i],expo[i]);
     }
     for(i = 0; i < CLASSES_SOFTMAX; i++)
     {
@@ -969,29 +969,29 @@ int main(int argc, char** argv) {
 	layer_count++;
 	unsigned char* op_fm_27 = (unsigned char*) malloc(ELEMENTS * HEIGHT_28 * WIDTH_28 * sizeof(unsigned char));	//output feature map for layer 27
 	convAvgPool(op_fm_26, op_fm_27, HEIGHT_27, WIDTH_27, HEIGHT_28, WIDTH_28, IP_FM_27, ELEMENTS);
-for (k = 0; k < ELEMENTS; k++){
-		for (j = 0; j < 1; j++){
-			for(i = 0; i < 1; i++){
-				printf("%d\t", op_fm_27[(j*WIDTH_28+i) + (k*HEIGHT_28*WIDTH_28)]);
-			}
-			//printf("\n");
-		}
-    //printf("\n");
-	} 
+// for (k = 0; k < ELEMENTS; k++){
+// 		for (j = 0; j < 1; j++){
+// 			for(i = 0; i < 1; i++){
+// 				printf("%d\t", op_fm_27[(j*WIDTH_28+i) + (k*HEIGHT_28*WIDTH_28)]);
+// 			}
+// 			//printf("\n");
+// 		}
+//     //printf("\n");
+// 	} 
 	//Layer 28 Fully COnnected
-printf("\n");
+	printf("\n");
 	layer_count++;
 	unsigned char* op_fm_28 = (unsigned char*) malloc(CLASSES_SOFTMAX * HEIGHT_29 * WIDTH_29 * sizeof(unsigned char));	//output feature map for layer 28
 	fullyConectedLayer(op_fm_27, op_fm_28, "bias/BConv2d_fullyconnected", "weights/Conv2d_fullyconnected", CLASSES, ELEMENTS);
-	for (k = 0; k < CLASSES; k++){
-		for (j = 0; j < 1; j++){
-			for(i = 0; i < 1; i++){
-				printf("%d\t", op_fm_28[(j*WIDTH_28+i) + (k*HEIGHT_28*WIDTH_28)]);
-			}
-			//printf("\n");
-		}
-    //printf("\n");
-	} 
+	// for (k = 0; k < CLASSES; k++){
+	// 	for (j = 0; j < 1; j++){
+	// 		for(i = 0; i < 1; i++){
+	// 			printf("%d\t", op_fm_28[(j*WIDTH_28+i) + (k*HEIGHT_28*WIDTH_28)]);
+	// 		}
+	// 		//printf("\n");
+	// 	}
+    // //printf("\n");
+	// } 
 
 	//Layer 29 Softmax
 
