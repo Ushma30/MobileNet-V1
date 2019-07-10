@@ -361,7 +361,7 @@ void convStandard (float* opfm) {
 	err = clEnqueueWriteBuffer(commands, d_image_r, CL_TRUE, 0, HEIGHT_0*WIDTH_0*sizeof(float), image_r_f, 0, NULL, NULL);
 	err |= clEnqueueWriteBuffer(commands, d_image_g, CL_TRUE, 0, HEIGHT_0*WIDTH_0*sizeof(float), image_g_f, 0, NULL, NULL);   
 	err |= clEnqueueWriteBuffer(commands, d_image_b, CL_TRUE, 0, HEIGHT_0*WIDTH_0*sizeof(float), image_b_f, 0, NULL, NULL);   
-	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, IP_FM_1*FDIM*FDIM*FDIM*sizeof(float), filter, 0, NULL, NULL);   
+	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, IP_FM_1*FDIM*FDIM*FDIM*sizeof(float), filter_proper, 0, NULL, NULL);   
 	err |= clEnqueueWriteBuffer(commands, d_bias, CL_TRUE, 0, IP_FM_1*sizeof(float), h_bias, 0, NULL, NULL);   
 
 	if (err != CL_SUCCESS)
@@ -426,9 +426,9 @@ void convStandard (float* opfm) {
 
 	printf("Data for Layer %d\n", layer_count);
 	 
-	for (k = 0; k < 32; k++){
-		for (j = 0; j < 10; j++){
-			for(i = 0; i < 10; i++){
+	for (k = 1; k <= 1; k++){
+		for (j = 0; j < 12; j++){
+			for(i = 0; i < 12; i++){
 				printf("%f\t", opfm[(j*112+i) + (k*112*112)]);
 			}
 			printf("\n");
@@ -483,7 +483,7 @@ void convDepthwise(float* ipfm, float* opfm, char* fileName_bias,
 	}    
 	
 	err = clEnqueueWriteBuffer(commands, d_input, CL_TRUE, 0, iph*ipw*ip_fsize*sizeof(float), ipfm, 0, NULL, NULL);
-	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, op_fsize*FDIM*FDIM*sizeof(float), filter, 0, NULL, NULL);
+	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, op_fsize*FDIM*FDIM*sizeof(float), filter_proper, 0, NULL, NULL);
 	err |= clEnqueueWriteBuffer(commands, d_bias, CL_TRUE, 0, op_fsize*sizeof(float), h_bias, 0, NULL, NULL);   
 
 	if (err != CL_SUCCESS)
@@ -593,7 +593,7 @@ void convPointwise(float* ipfm, float* opfm, char* fileName_bias, char* fileName
 	}
 	
 	err = clEnqueueWriteBuffer(commands, d_input, CL_TRUE, 0, iph*ipw*ip_fsize*sizeof(float), ipfm, 0, NULL, NULL);
-	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, ip_fsize*op_fsize*FDIM_P*FDIM_P*sizeof(float), filter, 0, NULL, NULL);
+	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, ip_fsize*op_fsize*FDIM_P*FDIM_P*sizeof(float), filter_proper, 0, NULL, NULL);
 	err |= clEnqueueWriteBuffer(commands, d_bias, CL_TRUE, 0, op_fsize*sizeof(float), h_bias, 0, NULL, NULL);
 
 	if (err != CL_SUCCESS)
@@ -768,7 +768,7 @@ void fullyConectedLayer( float* ipfm, float* opfm, char* fileName_bias , char* f
     {
         for(j = 0; j < ELEMENTS; j++)
         {
-            sum += ipfm[j] * filter[j + (CLASSES * i)];
+            sum += ipfm[j] * filter_proper[j + (CLASSES * i)];
 
 			// if (j == 0)
 			// 	printf("ip %d + fil %d = sum %d \n", ipfm[j],(filter[j] - Z2_28), sum );
@@ -1054,7 +1054,7 @@ int main(int argc, char** argv) {
 	printf("Avg pool done");
 	layer_count++;
 	float* op_fm_28 = (float*) malloc(CLASSES_SOFTMAX * HEIGHT_29 * WIDTH_29 * sizeof(float));	//output feature map for layer 28
-	fullyConectedLayer(op_fm_27, op_fm_28, "bias/BConv2d_fullyconnected", "weights_float/Conv2d_fullyconnected.npy", CLASSES, ELEMENTS);
+	fullyConectedLayer(op_fm_27, op_fm_28, "bias/BConv2d_fullyconnected", "weights_float/conv_preds_kernel_0", CLASSES, ELEMENTS);
 	// for (k = 0; k < CLASSES; k++){
 	// 	for (j = 0; j < 1; j++){
 	// 		for(i = 0; i < 1; i++){
