@@ -301,7 +301,6 @@ void convStandard (float* opfm) {
 	cl_mem d_image_r; //R channel
 	cl_mem d_image_g; //G channel
 	cl_mem d_image_b; //B channel
-	cl_mem d_bias;	  //Bias Data
 
 	unsigned char* image_r = (unsigned char*) malloc(HEIGHT_0 * WIDTH_0 * sizeof(unsigned char)); //R channel
 	unsigned char* image_g = (unsigned char*) malloc(HEIGHT_0 * WIDTH_0 * sizeof(unsigned char)); //G channel
@@ -313,14 +312,6 @@ void convStandard (float* opfm) {
 	float* image_b_f = (float*) malloc(HEIGHT_0 * WIDTH_0 * sizeof(float)); //B channel in float
 
 	int i,j,k;
-
-	/*Bias*/
-	float* h_bias;
-	
-    h_bias = (float*)malloc(sizeof(float) * IP_FM_1);
-
-	//Get bias values
-    //getBias(h_bias,"bias/BConv2d_0",IP_FM_1);
 
 	//Read pixel values from input image
 	decode_image(image,"testData/tiger.ppm"); 
@@ -360,9 +351,8 @@ void convStandard (float* opfm) {
 	d_image_b = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(float), image_b_f, &err);
 	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, (HEIGHT_1)*(WIDTH_1)*IP_FM_1*sizeof(float), NULL, &err);
 	d_filter = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, IP_FM_1*FDIM*FDIM*FDIM*sizeof(float), filter, &err);
-	d_bias = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, IP_FM_1*sizeof(float), h_bias, &err);
 
-	if (!d_image_r || !d_image_g || !d_image_b || !d_filter || !d_output || !d_bias)
+	if (!d_image_r || !d_image_g || !d_image_b || !d_filter || !d_output)
 	{
 		printf("Error: Failed to allocate device memory!\n");
 		exit(1);
@@ -372,7 +362,6 @@ void convStandard (float* opfm) {
 	err |= clEnqueueWriteBuffer(commands, d_image_g, CL_TRUE, 0, HEIGHT_0*WIDTH_0*sizeof(float), image_g_f, 0, NULL, NULL);   
 	err |= clEnqueueWriteBuffer(commands, d_image_b, CL_TRUE, 0, HEIGHT_0*WIDTH_0*sizeof(float), image_b_f, 0, NULL, NULL);   
 	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, IP_FM_1*FDIM*FDIM*FDIM*sizeof(float), filter_proper, 0, NULL, NULL);   
-	err |= clEnqueueWriteBuffer(commands, d_bias, CL_TRUE, 0, IP_FM_1*sizeof(float), h_bias, 0, NULL, NULL);   
 
 	if (err != CL_SUCCESS)
 	{
@@ -391,12 +380,11 @@ void convStandard (float* opfm) {
 	err |= clSetKernelArg(standard_conv, 2, sizeof(cl_mem), (void *)&d_image_g);
 	err |= clSetKernelArg(standard_conv, 3, sizeof(cl_mem), (void *)&d_image_b);
 	err |= clSetKernelArg(standard_conv, 4, sizeof(cl_mem), (void *)&d_filter);
-	err |= clSetKernelArg(standard_conv, 5, sizeof(cl_mem), (void *)&d_bias);
-	err |= clSetKernelArg(standard_conv, 6, sizeof(int), (void *)&rows);
-	err |= clSetKernelArg(standard_conv, 7, sizeof(int), (void *)&cols);
-	err |= clSetKernelArg(standard_conv, 8, sizeof(int), (void *)&filtersize);
-    err |= clSetKernelArg(standard_conv, 9, sizeof(int), (void *)&stride);
-    err |= clSetKernelArg(standard_conv, 10, sizeof(int), (void *)&no_fm_0);
+	err |= clSetKernelArg(standard_conv, 5, sizeof(int), (void *)&rows);
+	err |= clSetKernelArg(standard_conv, 6, sizeof(int), (void *)&cols);
+	err |= clSetKernelArg(standard_conv, 7, sizeof(int), (void *)&filtersize);
+    err |= clSetKernelArg(standard_conv, 8, sizeof(int), (void *)&stride);
+    err |= clSetKernelArg(standard_conv, 9, sizeof(int), (void *)&no_fm_0);
 
 
 	if (err != CL_SUCCESS)
@@ -433,8 +421,11 @@ void convStandard (float* opfm) {
 			if (opfm[j + (k * HEIGHT_1 * WIDTH_1)] <= 0){
 				opfm[j + (k * HEIGHT_1 * WIDTH_1)] = 0;
 			}
+			else if (opfm[j + (k * HEIGHT_1 * WIDTH_1)] > 6){
+				opfm[j + (k * HEIGHT_1 * WIDTH_1)] = 6;
+			}
 		}
-		printf("\n");
+		//printf("\n");
 	}
 
 
@@ -447,17 +438,17 @@ void convStandard (float* opfm) {
 	//Get kernel execution time
 	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
 
-	printf("Data for Layer %d\n", layer_count);
+	// printf("Data for Layer %d\n", layer_count);
 	 
-	for (k = 0; k < 32; k++){
-		for (j = 0; j < 12; j++){
-			for(i = 0; i < 12; i++){
-				printf("%f\t", opfm[(j*112+i) + (k*112*112)]);
-			}
-			printf("\n");
-		}
-    printf("\n");
-	}	
+	// for (k = 0; k < 32; k++){
+	// 	for (j = 0; j < 12; j++){
+	// 		for(i = 0; i < 12; i++){
+	// 			printf("%f\t", opfm[(j*112+i) + (k*112*112)]);
+	// 		}
+	// 		printf("\n");
+	// 	}
+    // printf("\n");
+	// }	
 	
 	free(image_r);
 	free(image_g);
@@ -469,32 +460,23 @@ void convStandard (float* opfm) {
 
 }
 
-void convDepthwise(float* ipfm, float* opfm, char* fileName_bias, 
+void convDepthwise(float* ipfm, float* opfm, char* fileName_gama, char* fileName_beta, char* fileName_mean, char* fileName_variance, 
 				   char* fileName_filter, int iph, int ipw, int oph, int opw, int ip_fsize, 
 				   int op_fsize, int stride) {
 	
 	cl_mem d_input;	//Input Data
-	cl_mem d_bias;	//Bias Data
 
 	kernelExecTimeNs = 0;
 	int i,j,k;
-
-	/*Bias*/
-	float* h_bias;
-	
-    h_bias = (float*)malloc(sizeof(float) * op_fsize);
-
-	//Get bias values
-    getBias(h_bias,fileName_bias,op_fsize);
 
 	//Get filter values
 	getWeights(filter,fileName_filter,(op_fsize*FDIM*FDIM));
 
 	//Get beta, gama, variance and mooving mean
-	getWeights(gama, "gamma/conv1_bn_gamma_0", op_fsize);					//gamma
-	getWeights(beta, "beta/conv1_bn_beta_0", op_fsize);						//beta
-	getWeights(moving_mean, "mean/conv1_bn_moving_mean_0", op_fsize);		//moving_mean
-	getWeights(variance, "variance/conv1_bn_moving_variance_0", op_fsize);	//variance
+	getWeights(gama, fileName_gama, op_fsize);				//gamma
+	getWeights(beta, fileName_beta, op_fsize);				//beta
+	getWeights(moving_mean, fileName_mean, op_fsize);		//moving_mean
+	getWeights(variance, fileName_variance, op_fsize);		//variance
 
 	//reaarange weights in proper format
 	arrangWeightsDepthwise(filter, filter_proper, 32);
@@ -503,9 +485,8 @@ void convDepthwise(float* ipfm, float* opfm, char* fileName_bias,
 	d_input = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, iph*ipw*ip_fsize*sizeof(float), ipfm, &err);
 	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, oph*opw*op_fsize*sizeof(float), NULL, &err);
 	d_filter = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, op_fsize*FDIM*FDIM*sizeof(float), filter, &err);	
-	d_bias = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, op_fsize*sizeof(float), h_bias, &err);
 
-	if (!d_input || !d_filter || !d_output || !d_bias)
+	if (!d_input || !d_filter || !d_output)
 	{
 		printf("Error: Failed to allocate device memory!\n");
 		exit(1);
@@ -513,7 +494,6 @@ void convDepthwise(float* ipfm, float* opfm, char* fileName_bias,
 	
 	err = clEnqueueWriteBuffer(commands, d_input, CL_TRUE, 0, iph*ipw*ip_fsize*sizeof(float), ipfm, 0, NULL, NULL);
 	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, op_fsize*FDIM*FDIM*sizeof(float), filter_proper, 0, NULL, NULL);
-	err |= clEnqueueWriteBuffer(commands, d_bias, CL_TRUE, 0, op_fsize*sizeof(float), h_bias, 0, NULL, NULL);   
 
 	if (err != CL_SUCCESS)
 	{
@@ -528,12 +508,11 @@ void convDepthwise(float* ipfm, float* opfm, char* fileName_bias,
 	err = clSetKernelArg(depthwise_conv, 0, sizeof(cl_mem), (void *)&d_output);
 	err |= clSetKernelArg(depthwise_conv, 1, sizeof(cl_mem), (void *)&d_input);
 	err |= clSetKernelArg(depthwise_conv, 2, sizeof(cl_mem), (void *)&d_filter);
-	err |= clSetKernelArg(depthwise_conv, 3, sizeof(cl_mem), (void *)&d_bias);
-	err |= clSetKernelArg(depthwise_conv, 4, sizeof(int), (void *)&rows);
-	err |= clSetKernelArg(depthwise_conv, 5, sizeof(int), (void *)&cols);
-	err |= clSetKernelArg(depthwise_conv, 6, sizeof(int), (void *)&filtersize);
-	err |= clSetKernelArg(depthwise_conv, 7, sizeof(int), (void *)&stride);
-	err |= clSetKernelArg(depthwise_conv, 8, sizeof(int), (void *)&op_fsize);
+	err |= clSetKernelArg(depthwise_conv, 3, sizeof(int), (void *)&rows);
+	err |= clSetKernelArg(depthwise_conv, 4, sizeof(int), (void *)&cols);
+	err |= clSetKernelArg(depthwise_conv, 5, sizeof(int), (void *)&filtersize);
+	err |= clSetKernelArg(depthwise_conv, 6, sizeof(int), (void *)&stride);
+	err |= clSetKernelArg(depthwise_conv, 7, sizeof(int), (void *)&op_fsize);
     
 	if (err != CL_SUCCESS)
 	{ 
@@ -572,44 +551,41 @@ void convDepthwise(float* ipfm, float* opfm, char* fileName_bias,
 	for (k = 0; k < op_fsize; k++) {
 		for (j = 0; j < oph * opw; j++){
 			opfm[j + (k * oph * opw)] =  (gama[k] * ((opfm[j + (k * oph * opw)] - moving_mean[k]) / sqrt(variance[k] + 0.001))) + beta[k];
+			if (opfm[j + (k * oph * opw)] <= 0 ){
+				opfm[j + (k * oph * opw)] = 0;
+			}
+			else if (opfm[j + (k * oph * opw)] > 6 ){
+				opfm[j + (k * oph * opw)] = 6;
+			}
 		}
 		//printf("\n");
 	}
 
 	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
 
-	/*	printf("Data for Layer %d\n", layer_count);
+	printf("Data for Layer %d\n", layer_count);
 
-	for (k = 0; k < 32; k++){
-		for (j = 0; j < 5; j++){
-			for(i = 0; i < 5; i++){
-				printf("%u\t", opfm[(j*112+i) + k]);
+	for (k = 0; k < op_fsize; k++){
+		for (j = 100; j < 112; j++){
+			for(i = 100; i < 112; i++){
+				printf("%f\t", opfm[(j*opw+i) + (k*oph*opw)]);
 			}
 			printf("\n");
 		}
-    	printf("\n");
-	} */
+    printf("\n");
+	}
 	
 	clReleaseMemObject(d_input);
 
 }
 
-void convPointwise(float* ipfm, float* opfm, char* fileName_bias, char* fileName_filter, 
-					int iph, int ipw, int oph, int opw, int ip_fsize, int op_fsize) {
+void convPointwise(float* ipfm, float* opfm, char* fileName_gama, char* fileName_beta, char* fileName_mean, char* fileName_variance,
+					char* fileName_filter, int iph, int ipw, int oph, int opw, int ip_fsize, int op_fsize) {
 
 	cl_mem d_input;	//Input Data
-	cl_mem d_bias;	//Bias Data
-
+	
 	kernelExecTimeNs = 0;
 	int i,j,k;
-
-	/*Bias*/
-	float* h_bias;
-	
-    h_bias = (float*)malloc(sizeof(float) * op_fsize);
-
-	//Get bias values
-    getBias(h_bias,fileName_bias,op_fsize);
 
 	//Get filter values
 	getWeights(filter, fileName_filter, (ip_fsize*op_fsize*FDIM_P*FDIM_P));
@@ -627,9 +603,8 @@ void convPointwise(float* ipfm, float* opfm, char* fileName_bias, char* fileName
 	d_input = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, iph*ipw*ip_fsize*sizeof(float), ipfm, &err);
 	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, oph*opw*op_fsize*sizeof(float), NULL, &err);
 	d_filter = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, ip_fsize*op_fsize*FDIM_P*sizeof(float), filter, &err);
-	d_bias = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, op_fsize*sizeof(float), h_bias, &err);	
-
-	if (!d_input || !d_filter || !d_output || !d_bias)
+	
+	if (!d_input || !d_filter || !d_output)
 	{
 		printf("Error: Failed to allocate device memory!\n");
 		exit(1);
@@ -637,7 +612,6 @@ void convPointwise(float* ipfm, float* opfm, char* fileName_bias, char* fileName
 	
 	err = clEnqueueWriteBuffer(commands, d_input, CL_TRUE, 0, iph*ipw*ip_fsize*sizeof(float), ipfm, 0, NULL, NULL);
 	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, ip_fsize*op_fsize*FDIM_P*FDIM_P*sizeof(float), filter_proper, 0, NULL, NULL);
-	err |= clEnqueueWriteBuffer(commands, d_bias, CL_TRUE, 0, op_fsize*sizeof(float), h_bias, 0, NULL, NULL);
 
 	if (err != CL_SUCCESS)
 	{
@@ -652,11 +626,10 @@ void convPointwise(float* ipfm, float* opfm, char* fileName_bias, char* fileName
 	err = clSetKernelArg(pointwise_conv, 0, sizeof(cl_mem), (void *)&d_output);
 	err |= clSetKernelArg(pointwise_conv, 1, sizeof(cl_mem), (void *)&d_input);
 	err |= clSetKernelArg(pointwise_conv, 2, sizeof(cl_mem), (void *)&d_filter);
-	err |= clSetKernelArg(pointwise_conv, 3, sizeof(cl_mem), (void *)&d_bias);
-	err |= clSetKernelArg(pointwise_conv, 4, sizeof(int), (void *)&rows);
-	err |= clSetKernelArg(pointwise_conv, 5, sizeof(int), (void *)&cols);
-	err |= clSetKernelArg(pointwise_conv, 6, sizeof(int), (void *)&filtersize);
-	err |= clSetKernelArg(pointwise_conv, 7, sizeof(int), (void *)&op_fsize);
+	err |= clSetKernelArg(pointwise_conv, 3, sizeof(int), (void *)&rows);
+	err |= clSetKernelArg(pointwise_conv, 4, sizeof(int), (void *)&cols);
+	err |= clSetKernelArg(pointwise_conv, 5, sizeof(int), (void *)&filtersize);
+	err |= clSetKernelArg(pointwise_conv, 6, sizeof(int), (void *)&op_fsize);
 	
 	if (err != CL_SUCCESS)
 	{ 
@@ -691,27 +664,30 @@ void convPointwise(float* ipfm, float* opfm, char* fileName_bias, char* fileName
 	}
 
 	//Batch Normalization of output data
-	for (k = 0; k < op_fsize; k++) {
-		for (j = 0; j < oph * opw; j++){
-			opfm[j + (k * oph * opw)] =  (gama[k] * ((opfm[j + (k * oph * opw)] - moving_mean[k]) / sqrt(variance[k] + 0.001))) + beta[k];
-		}
-		//printf("\n");
-	}
+	// for (k = 0; k < op_fsize; k++) {
+	// 	for (j = 0; j < oph * opw; j++){
+	// 		opfm[j + (k * oph * opw)] =  (gama[k] * ((opfm[j + (k * oph * opw)] - moving_mean[k]) / sqrt(variance[k] + 0.001))) + beta[k];
+	// 		// if (opfm[j + (k * oph * opw)] <= 0){
+	// 		// 	opfm[j + (k * oph * opw)] = 0;
+	// 		// }
+	// 	}
+	// 	//printf("\n");
+	// }
 
 	//Get kernel execution time
 	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
 
-	/* printf("Data for Layer %d\n", layer_count);
+	printf("Data for Layer %d\n", layer_count);
 
-	for (k = 0; k < 32; k++){
-		for (j = 0; j < 5; j++){
-			for(i = 0; i < 5; i++){
-				printf("%u\t", opfm[(j*112+i) + k]);
+	for (k = 0; k < op_fsize; k++){
+		for (j = 0; j < 10; j++){
+			for(i = 0; i < 10; i++){
+				printf("%f\t", opfm[(j*opw+i) + (k*oph*opw)]);
 			}
 			printf("\n");
 		}
-    	printf("\n");
-	} */
+    printf("\n");
+	}
 
 	clReleaseMemObject(d_input);
 }
@@ -937,15 +913,15 @@ int main(int argc, char** argv) {
 	
 	layer_count++;
 	float* op_fm_1 = (float*) malloc(IP_FM_2 * HEIGHT_2 * WIDTH_2 * sizeof(float)); //output feature map for layer 1
-	convDepthwise(op_fm_0, op_fm_1, "bias/BConv2d_1_depthwise", "weights_float/conv_dw_1_depthwise_kernel_0", HEIGHT_1, WIDTH_1, HEIGHT_2, WIDTH_2, IP_FM_1, IP_FM_2, 1);
+	convDepthwise(op_fm_0, op_fm_1, "gamma/conv_dw_1_bn_gamma_0", "beta/conv_dw_1_bn_beta_0", "mean/conv_dw_1_bn_moving_mean_0", "variance/conv_dw_1_bn_moving_variance_0", "weights_float/conv_dw_1_depthwise_kernel_0", HEIGHT_1, WIDTH_1, HEIGHT_2, WIDTH_2, IP_FM_1, IP_FM_2, 1);
 	
 	//Layer 2 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_2 = (float*) malloc(IP_FM_3 * HEIGHT_3 * WIDTH_3 * sizeof(float));	//output feature map for layer 2
 	convPointwise(op_fm_1, op_fm_2, "bias/BConv2d_1_pointwise", "weights_float/conv_pw_1_kernel_0", HEIGHT_2, WIDTH_2, HEIGHT_3, WIDTH_3, IP_FM_2, IP_FM_3);
-
-	//Layer 3 Depth-Wise Convolution
+ 
+/* 	//Layer 3 Depth-Wise Convolution
 
 	layer_count++;
 	float* op_fm_3 = (float*) malloc(IP_FM_4 * HEIGHT_4 * WIDTH_4 * sizeof(float)); //output feature map for layer 3
@@ -1126,17 +1102,17 @@ int main(int argc, char** argv) {
 
 	layer_count++;
 	softmax(op_fm_28);
-
+*/
 	//Shutdown and cleanup
 	free(filter);
 	free(op_fm_0);	free(op_fm_1);	free(op_fm_2);	free(op_fm_3);
-	free(op_fm_4);	free(op_fm_5);	free(op_fm_6);	free(op_fm_7);
+	/* free(op_fm_4);	free(op_fm_5);	free(op_fm_6);	free(op_fm_7);
 	free(op_fm_8);	free(op_fm_9);	free(op_fm_10);	free(op_fm_11);
 	free(op_fm_12);	free(op_fm_13);	free(op_fm_14);	free(op_fm_15);
 	free(op_fm_16);	free(op_fm_17);	free(op_fm_18);	free(op_fm_19);
 	free(op_fm_20);	free(op_fm_21);	free(op_fm_22);	free(op_fm_23);
 	free(op_fm_24);	free(op_fm_25);	free(op_fm_26);	free(op_fm_27);
-	free(op_fm_28);
+	free(op_fm_28);*/
 	clReleaseMemObject(d_output);
 	clReleaseMemObject(d_filter);
 	clReleaseProgram(program);
