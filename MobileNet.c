@@ -591,10 +591,10 @@ void convPointwise(float* ipfm, float* opfm, char* fileName_gama, char* fileName
 	getWeights(filter, fileName_filter, (ip_fsize*op_fsize*FDIM_P*FDIM_P));
 
 	//Get beta, gama, variance and mooving mean
-	getWeights(gama, "gamma/conv1_bn_gamma_0", op_fsize);					//gamma
-	getWeights(beta, "beta/conv1_bn_beta_0", op_fsize);						//beta
-	getWeights(moving_mean, "mean/conv1_bn_moving_mean_0", op_fsize);		//moving_mean
-	getWeights(variance, "variance/conv1_bn_moving_variance_0", op_fsize);	//variance
+	getWeights(gama, fileName_gama, op_fsize);				//gamma
+	getWeights(beta, fileName_beta, op_fsize);				//beta
+	getWeights(moving_mean, fileName_mean, op_fsize);		//moving_mean
+	getWeights(variance, fileName_variance, op_fsize);		//variance
 
 	//reaarange weights in proper format
 	arrangWeightsPointwise(filter, filter_proper, ip_fsize, op_fsize);
@@ -919,7 +919,7 @@ int main(int argc, char** argv) {
 
 	layer_count++;
 	float* op_fm_2 = (float*) malloc(IP_FM_3 * HEIGHT_3 * WIDTH_3 * sizeof(float));	//output feature map for layer 2
-	convPointwise(op_fm_1, op_fm_2, "bias/BConv2d_1_pointwise", "weights_float/conv_pw_1_kernel_0", HEIGHT_2, WIDTH_2, HEIGHT_3, WIDTH_3, IP_FM_2, IP_FM_3);
+	convPointwise(op_fm_1, op_fm_2, "gamma/conv_pw_1_bn_gamma_0", "beta/conv_pw_1_bn_beta_0", "mean/conv_pw_1_bn_moving_mean_0", "variance/conv_pw_1_bn_moving_variance_0", "weights_float/conv_pw_1_kernel_0", HEIGHT_2, WIDTH_2, HEIGHT_3, WIDTH_3, IP_FM_2, IP_FM_3);
  
 /* 	//Layer 3 Depth-Wise Convolution
 
