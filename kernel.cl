@@ -105,11 +105,11 @@ __kernel void depthwise(__global float* output,
 	while (filter_count < op_size) {
 		int output_shift = rows * cols * filter_count;
 		
-		for(i = -half_filtersize; i<= half_filtersize; i++){
+		for(i = 0; i < filtersize; i++){
 			yindex = ty * stride + i;
-			for(j = -half_filtersize; j<= half_filtersize; j++,findex++){
+			for(j = 0; j < filtersize; j++,findex++){
 				xindex = tx * stride + j;
-				if (yindex < 0 || xindex < 0) {
+				if (yindex >= cols || xindex >= rows) {
 					sum +=  0 * filter_k[findex];
 				}
 				else {

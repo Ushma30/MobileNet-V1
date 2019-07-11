@@ -425,11 +425,14 @@ void convStandard (float* opfm) {
 	kernelExecTimeNs += end - start;
 	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, IP_FM_1*(HEIGHT_1)*(WIDTH_1)*sizeof(float), opfm, 0, NULL, NULL);
 
-	float* batch_norm_op = (float*) malloc(IP_FM_1 * HEIGHT_1 * WIDTH_1 * sizeof(float)); //batch norm output feature map for layer 0
-
+	
+	//Batch Normalization of output data
 	for (k = 0; k < IP_FM_1; k++) {
 		for (j = 0; j < HEIGHT_1 * WIDTH_1; j++){
-			batch_norm_op[j + (k * HEIGHT_1 * WIDTH_1)] =  (gama[k] * ((opfm[j + (k * HEIGHT_1 * WIDTH_1)] - moving_mean[k]) / sqrt(variance[k] + 0.001))) + beta[k];
+			opfm[j + (k * HEIGHT_1 * WIDTH_1)] =  (gama[k] * ((opfm[j + (k * HEIGHT_1 * WIDTH_1)] - moving_mean[k]) / sqrt(variance[k] + 0.001))) + beta[k];
+			if (opfm[j + (k * HEIGHT_1 * WIDTH_1)] <= 0){
+				opfm[j + (k * HEIGHT_1 * WIDTH_1)] = 0;
+			}
 		}
 		printf("\n");
 	}
@@ -449,7 +452,7 @@ void convStandard (float* opfm) {
 	for (k = 0; k < 32; k++){
 		for (j = 0; j < 12; j++){
 			for(i = 0; i < 12; i++){
-				printf("%f\t", batch_norm_op[(j*112+i) + (k*112*112)]);
+				printf("%f\t", opfm[(j*112+i) + (k*112*112)]);
 			}
 			printf("\n");
 		}
@@ -486,6 +489,12 @@ void convDepthwise(float* ipfm, float* opfm, char* fileName_bias,
 
 	//Get filter values
 	getWeights(filter,fileName_filter,(op_fsize*FDIM*FDIM));
+
+	//Get beta, gama, variance and mooving mean
+	getWeights(gama, "gamma/conv1_bn_gamma_0", op_fsize);					//gamma
+	getWeights(beta, "beta/conv1_bn_beta_0", op_fsize);						//beta
+	getWeights(moving_mean, "mean/conv1_bn_moving_mean_0", op_fsize);		//moving_mean
+	getWeights(variance, "variance/conv1_bn_moving_variance_0", op_fsize);	//variance
 
 	//reaarange weights in proper format
 	arrangWeightsDepthwise(filter, filter_proper, 32);
@@ -559,6 +568,14 @@ void convDepthwise(float* ipfm, float* opfm, char* fileName_bias,
 		exit(1);
 	}
 
+	//Batch Normalization of output data
+	for (k = 0; k < op_fsize; k++) {
+		for (j = 0; j < oph * opw; j++){
+			opfm[j + (k * oph * opw)] =  (gama[k] * ((opfm[j + (k * oph * opw)] - moving_mean[k]) / sqrt(variance[k] + 0.001))) + beta[k];
+		}
+		//printf("\n");
+	}
+
 	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
 
 	/*	printf("Data for Layer %d\n", layer_count);
@@ -596,6 +613,12 @@ void convPointwise(float* ipfm, float* opfm, char* fileName_bias, char* fileName
 
 	//Get filter values
 	getWeights(filter, fileName_filter, (ip_fsize*op_fsize*FDIM_P*FDIM_P));
+
+	//Get beta, gama, variance and mooving mean
+	getWeights(gama, "gamma/conv1_bn_gamma_0", op_fsize);					//gamma
+	getWeights(beta, "beta/conv1_bn_beta_0", op_fsize);						//beta
+	getWeights(moving_mean, "mean/conv1_bn_moving_mean_0", op_fsize);		//moving_mean
+	getWeights(variance, "variance/conv1_bn_moving_variance_0", op_fsize);	//variance
 
 	//reaarange weights in proper format
 	arrangWeightsPointwise(filter, filter_proper, ip_fsize, op_fsize);
@@ -665,6 +688,14 @@ void convPointwise(float* ipfm, float* opfm, char* fileName_bias, char* fileName
 	{
 		printf("Error: Failed to read output array! %d\n", err);
 		exit(1);
+	}
+
+	//Batch Normalization of output data
+	for (k = 0; k < op_fsize; k++) {
+		for (j = 0; j < oph * opw; j++){
+			opfm[j + (k * oph * opw)] =  (gama[k] * ((opfm[j + (k * oph * opw)] - moving_mean[k]) / sqrt(variance[k] + 0.001))) + beta[k];
+		}
+		//printf("\n");
 	}
 
 	//Get kernel execution time
