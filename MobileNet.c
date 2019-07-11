@@ -30,6 +30,10 @@
 unsigned char image[HEIGHT_0 * WIDTH_0 * FDIM]; //image with 3 input channels
 float* filter;
 float* filter_proper;
+float* gama;
+float* beta;
+float* moving_mean;
+float* variance;
 int err;
 int layer_count = 0;
 
@@ -215,7 +219,7 @@ int openClCreateKernel() {
 
 void seperateChannels(unsigned char* imd, unsigned char* im1, unsigned char* im2, unsigned char* im3){
     int i,j;    
-    for(i=0,j=0; i<HEIGHT_0*WIDTH_0; i++,j+=3){
+    for(i=0, j=0; i<HEIGHT_0*WIDTH_0; i++, j+=3){
         im1[i] = imd[j];
         im2[i] = imd[j+1];
         im3[i] = imd[j+2];                
@@ -248,7 +252,7 @@ void getWeights(float* aryWeight, char filename[], int size)
     fread(&headerOffset,sizeof(uint16_t),1,npyfile);
     //printf("shift headerOffset - %d \n", headerOffset);    
     fseek(npyfile, ( headerOffset + NPY_COMMON_HEADER_OFFSET ), SEEK_SET);
-    fread(aryWeight,sizeof(unsigned char),size,npyfile);
+    fread(aryWeight,sizeof(float),size,npyfile);
     fclose(npyfile);
 }
 /**
@@ -341,6 +345,12 @@ void convStandard (float* opfm) {
 	//Get filter values
     getWeights(filter,"weights_float/conv1_kernel_0",(IP_FM_1*FDIM*FDIM*FDIM));
 
+	//Get beta, gama, variance and mooving mean
+	getWeights(gama, "gamma/conv1_bn_gamma_0", IP_FM_1);					//gamma
+	getWeights(beta, "beta/conv1_bn_beta_0", IP_FM_1);						//beta
+	getWeights(moving_mean, "mean/conv1_bn_moving_mean_0", IP_FM_1);		//moving_mean
+	getWeights(variance, "variance/conv1_bn_moving_variance_0", IP_FM_1);	//variance
+
 	//reaarange weights in proper format
 	arrangWeights(filter, filter_proper);
 
@@ -415,6 +425,16 @@ void convStandard (float* opfm) {
 	kernelExecTimeNs += end - start;
 	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, IP_FM_1*(HEIGHT_1)*(WIDTH_1)*sizeof(float), opfm, 0, NULL, NULL);
 
+	float* batch_norm_op = (float*) malloc(IP_FM_1 * HEIGHT_1 * WIDTH_1 * sizeof(float)); //batch norm output feature map for layer 0
+
+	for (k = 0; k < IP_FM_1; k++) {
+		for (j = 0; j < HEIGHT_1 * WIDTH_1; j++){
+			batch_norm_op[j + (k * HEIGHT_1 * WIDTH_1)] =  (gama[k] * ((opfm[j + (k * HEIGHT_1 * WIDTH_1)] - moving_mean[k]) / sqrt(variance[k] + 0.001))) + beta[k];
+		}
+		printf("\n");
+	}
+
+
 	if (err != CL_SUCCESS)
 	{
 		printf("Error: Failed to read output array! %d\n", err);
@@ -426,10 +446,10 @@ void convStandard (float* opfm) {
 
 	printf("Data for Layer %d\n", layer_count);
 	 
-	for (k = 1; k <= 1; k++){
+	for (k = 0; k < 32; k++){
 		for (j = 0; j < 12; j++){
 			for(i = 0; i < 12; i++){
-				printf("%f\t", opfm[(j*112+i) + (k*112*112)]);
+				printf("%f\t", batch_norm_op[(j*112+i) + (k*112*112)]);
 			}
 			printf("\n");
 		}
@@ -867,6 +887,12 @@ int main(int argc, char** argv) {
     
 	filter = (float*) malloc(FILTER_MAX*FILTER_MAX*FDIM*FDIM*FDIM*sizeof(float));
 	filter_proper = (float*) malloc(FILTER_MAX*FILTER_MAX*FDIM*FDIM*FDIM*sizeof(float));
+
+	//Need to change
+	gama = (float*) malloc(FILTER_MAX*FILTER_MAX*FDIM*FDIM*FDIM*sizeof(float));
+	beta = (float*) malloc(FILTER_MAX*FILTER_MAX*FDIM*FDIM*FDIM*sizeof(float));
+	moving_mean = (float*) malloc(FILTER_MAX*FILTER_MAX*FDIM*FDIM*FDIM*sizeof(float));
+	variance = (float*) malloc(FILTER_MAX*FILTER_MAX*FDIM*FDIM*FDIM*sizeof(float));
 
 	float* op_fm_0 = (float*) malloc(IP_FM_1 * HEIGHT_1 * WIDTH_1 * sizeof(float)); //output feature map for layer 0
 	int i,j,k;

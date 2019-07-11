@@ -25,10 +25,10 @@ __kernel void convolute(__global float* output,
 				if (yindex >= cols || xindex >= rows) {
 					sum +=  0 * filter_k[findex];
 				}
-				if ((tx == 0 && ty == 0) && filter_count == 1) {
-					printf("Img r: %f\tfilter index %d\t%f\n",inp_image_r[yindex * get_global_size(0) * stride + xindex], findex, filter_k[findex]);
-					printf("Multiplication of R: %f\n",inp_image_r[yindex * get_global_size(0) * stride + xindex] * filter_k[findex]);
-				}
+				// if ((tx == 0 && ty == 0) && filter_count == 1) {
+				// 	printf("Img r: %f\tfilter index %d\t%f\n",inp_image_r[yindex * get_global_size(0) * stride + xindex], findex, filter_k[findex]);
+				// 	printf("Multiplication of R: %f\n",inp_image_r[yindex * get_global_size(0) * stride + xindex] * filter_k[findex]);
+				// }
  				sum +=  inp_image_r[yindex * get_global_size(0) * stride + xindex] * filter_k[findex];
 			}
 		}
@@ -42,10 +42,10 @@ __kernel void convolute(__global float* output,
 					sum +=  0 * filter_k[findex];
 				}
 				else {
-					if ((tx == 0 && ty == 0) && filter_count == 1) {
-						printf("Img g: %f\tfilter index %d\t%f\n",inp_image_g[yindex * get_global_size(0) * stride + xindex], findex, filter_k[findex]);
-						printf("Multiplication of G: %f\n",inp_image_g[yindex * get_global_size(0) * stride + xindex] * filter_k[findex]);
-					}
+					// if ((tx == 0 && ty == 0) && filter_count == 1) {
+					// 	printf("Img g: %f\tfilter index %d\t%f\n",inp_image_g[yindex * get_global_size(0) * stride + xindex], findex, filter_k[findex]);
+					// 	printf("Multiplication of G: %f\n",inp_image_g[yindex * get_global_size(0) * stride + xindex] * filter_k[findex]);
+					// }
  					sum +=  inp_image_g[yindex * get_global_size(0) * stride + xindex] * filter_k[findex];
 				}
 			}
@@ -60,10 +60,10 @@ __kernel void convolute(__global float* output,
 					sum +=  0 * filter_k[findex];
 				}
 				else {
-					if ((tx == 0 && ty == 0) && filter_count == 1) {
-						printf("Img b: %f\tfilter index %d\t%f\n",inp_image_b[yindex * get_global_size(0) * stride + xindex], findex, filter_k[findex]);
-						printf("Multiplication of B: %f\n",inp_image_b[yindex * get_global_size(0) * stride + xindex] * filter_k[findex]);
-					}
+					// if ((tx == 0 && ty == 0) && filter_count == 1) {
+					// 	printf("Img b: %f\tfilter index %d\t%f\n",inp_image_b[yindex * get_global_size(0) * stride + xindex], findex, filter_k[findex]);
+					// 	printf("Multiplication of B: %f\n",inp_image_b[yindex * get_global_size(0) * stride + xindex] * filter_k[findex]);
+					// }
  					sum +=  inp_image_b[yindex * get_global_size(0) * stride + xindex] * filter_k[findex];
 
 				}
