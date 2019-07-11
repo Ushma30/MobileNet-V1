@@ -103,18 +103,19 @@ __kernel void depthwise(__global float* output,
 	while (filter_count < op_size) {
 		int output_shift = rows * cols * filter_count;
 		
-		for(i = 0; i < filtersize; i++){
+		for(i = -half_filtersize; i <= half_filtersize; i++){
 			yindex = ty * stride + i;
-			for(j = 0; j < filtersize; j++,findex++){
+			for(j = -half_filtersize; j <= half_filtersize; j++,findex++){
 				xindex = tx * stride + j;
-				if (yindex >= cols || xindex >= rows) {
+				if (yindex < 0 || xindex < 0) {
 					sum +=  0 * filter_k[findex];
 				}
 				else {
-					/*if (tx == 4 && ty == 2) {
-						printf("Depth Image op: %d Filter\t%d\n",inp_image[yindex * get_global_size(0) * stride + xindex],filter_k[findex] - Z2);
-					}*/
- 					sum +=  inp_image[yindex * get_global_size(0) * stride + xindex] * filter_k[findex];
+					// if ((tx == 0 && ty == 0) && filter_count == 0) {
+					// 	printf("Img data: %f\tfilter index %d\t%f\n",inp_image[yindex * get_global_size(0) * stride + xindex], findex, filter_k[findex]);
+					// 	printf("Multiplication: %f\n",inp_image[yindex * get_global_size(0) * stride + xindex] * filter_k[findex]);
+					// }
+ 					sum +=  inp_image[(yindex * get_global_size(0) * stride + xindex) + output_shift] * filter_k[findex];
 				}
 			}
 		}
@@ -127,9 +128,6 @@ __kernel void depthwise(__global float* output,
 			printf("Depth Sum: %d\t\n",sum);
 		}*/
 
-		if (sum <= 0) {
-			sum = 0;		
-		}
 
 		output[(ty * get_global_size(0) + tx) + output_shift] = sum;
 		sum = 0;
@@ -163,9 +161,6 @@ __kernel void pointwise(__global float* output,
 			printf(" Point Sum: %d\t\n",sum);
 		}*/
 
-		if (sum <= 0) {
-			sum = 0;		
-		}
 		output[(ty * get_global_size(0) + tx) + output_shift] = sum;
 		sum = 0;
 		filter_count++;
