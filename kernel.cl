@@ -4,7 +4,6 @@ __kernel void convolute(__global float* output,
 						__global float* inp_image_g, 
 						__global float* inp_image_b, 
 						__global float* filter_k,
-						__global float* bias,
 						int rows, int cols, int filtersize, int stride, int op_size ) {
 
 	int tx = get_global_id(0);
@@ -91,7 +90,6 @@ __kernel void convolute(__global float* output,
 __kernel void depthwise(__global float* output, 
 						__global float* inp_image, 
 						__global float* filter_k, 
-						__global float* bias, 
 						int rows, int cols, int filtersize, int stride, int op_size ) { 
 
 	int tx = get_global_id(0);
@@ -142,7 +140,6 @@ __kernel void depthwise(__global float* output,
 __kernel void pointwise(__global float* output, 
 						__global float* inp_image, 
 						__global float* filter_k, 
-						__global float* bias, 
 						int rows, int cols, int filtersize, int op_size ) {  
 
 	int tx = get_global_id(0);
