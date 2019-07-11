@@ -152,14 +152,11 @@ __kernel void pointwise(__global float* output,
 		for (i = 0; i < filtersize; i++, findex++) {
 			sum += inp_image[(ty * get_global_size(0) + tx) + (rows * cols * i)] * filter_k[findex]; 
 		}
-		
-		//sum = sum + bias[filter_count];
 
-		/*if (tx == 4 && ty == 2) {
-			//printf("M: %f\tbias: %f\t\n",M,Sbias);
-			//printf("Summ: %d\t\n",(int)((M * sum) + (bias[filter_count] * Sbias)));
-			printf(" Point Sum: %d\t\n",sum);
-		}*/
+		// if ((tx == 0 && ty == 0) && filter_count == 0) {
+		// 	printf("Img data: %f\tfilter index %d\t%f\n",inp_image[(ty * get_global_size(0) + tx) + (rows * cols * i)], findex, filter_k[findex]);
+		// 	printf("Multiplication: %f\n",inp_image[(ty * get_global_size(0) + tx) + (rows * cols * i)] * filter_k[findex]);
+		// }
 
 		output[(ty * get_global_size(0) + tx) + output_shift] = sum;
 		sum = 0;

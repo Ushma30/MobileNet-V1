@@ -565,15 +565,15 @@ void convDepthwise(float* ipfm, float* opfm, char* fileName_gama, char* fileName
 
 	printf("Data for Layer %d\n", layer_count);
 
-	for (k = 0; k < op_fsize; k++){
-		for (j = 100; j < 112; j++){
-			for(i = 100; i < 112; i++){
-				printf("%f\t", opfm[(j*opw+i) + (k*oph*opw)]);
-			}
-			printf("\n");
-		}
-    printf("\n");
-	}
+	// for (k = 0; k < op_fsize; k++){
+	// 	for (j = 100; j < 112; j++){
+	// 		for(i = 100; i < 112; i++){
+	// 			printf("%f\t", opfm[(j*opw+i) + (k*oph*opw)]);
+	// 		}
+	// 		printf("\n");
+	// 	}
+    // printf("\n");
+	// }
 	
 	clReleaseMemObject(d_input);
 
@@ -664,15 +664,18 @@ void convPointwise(float* ipfm, float* opfm, char* fileName_gama, char* fileName
 	}
 
 	//Batch Normalization of output data
-	// for (k = 0; k < op_fsize; k++) {
-	// 	for (j = 0; j < oph * opw; j++){
-	// 		opfm[j + (k * oph * opw)] =  (gama[k] * ((opfm[j + (k * oph * opw)] - moving_mean[k]) / sqrt(variance[k] + 0.001))) + beta[k];
-	// 		// if (opfm[j + (k * oph * opw)] <= 0){
-	// 		// 	opfm[j + (k * oph * opw)] = 0;
-	// 		// }
-	// 	}
-	// 	//printf("\n");
-	// }
+	for (k = 0; k < op_fsize; k++) {
+		for (j = 0; j < oph * opw; j++){
+			opfm[j + (k * oph * opw)] =  (gama[k] * ((opfm[j + (k * oph * opw)] - moving_mean[k]) / sqrt(variance[k] + 0.001))) + beta[k];
+			if (opfm[j + (k * oph * opw)] <= 0 ){
+				opfm[j + (k * oph * opw)] = 0;
+			}
+			else if (opfm[j + (k * oph * opw)] > 6 ){
+				opfm[j + (k * oph * opw)] = 6;
+			}
+		}
+		//printf("\n");
+	}
 
 	//Get kernel execution time
 	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
@@ -1105,7 +1108,7 @@ int main(int argc, char** argv) {
 */
 	//Shutdown and cleanup
 	free(filter);
-	free(op_fm_0);	free(op_fm_1);	free(op_fm_2);	free(op_fm_3);
+	free(op_fm_0);	free(op_fm_1);	free(op_fm_2);	//free(op_fm_3);
 	/* free(op_fm_4);	free(op_fm_5);	free(op_fm_6);	free(op_fm_7);
 	free(op_fm_8);	free(op_fm_9);	free(op_fm_10);	free(op_fm_11);
 	free(op_fm_12);	free(op_fm_13);	free(op_fm_14);	free(op_fm_15);
