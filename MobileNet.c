@@ -327,6 +327,16 @@ void convStandard (float* opfm) {
 	uintToFloat(image_r, image_r_f);
 	uintToFloat(image_g, image_g_f);
 	uintToFloat(image_b, image_b_f);
+
+	// //for (k = 0; k < 32; k++){
+	// 	for (j = 223; j < 224; j++){
+	// 		for(i = 220; i < 224; i++){
+	// 			printf("%e\t", image_r_f[(j*224+i)]);
+	// 		}
+	// 		printf("\n");
+	// 	}
+    // // printf("\n");
+	// // }
 	
 	// printf("R data in float ");
 	// for (i = 0; i < HEIGHT_0*WIDTH_0; i++){
@@ -413,7 +423,18 @@ void convStandard (float* opfm) {
 	kernelExecTimeNs += end - start;
 	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, IP_FM_1*(HEIGHT_1)*(WIDTH_1)*sizeof(float), opfm, 0, NULL, NULL);
 
-	
+	printf("Before BN Data for layer %d\n", layer_count);
+	 
+	// for (k = 0; k < 32; k++){
+	// 	for (j = 111; j < 112; j++){
+	// 		for(i = 0; i < 112; i++){
+	// 			printf("%e\t", opfm[(j*112+i) + (k*112*112)]);
+	// 		}
+	// 		printf("\n");
+	// 	}
+    // printf("\n");
+	// }
+
 	//Batch Normalization of output data
 	for (k = 0; k < IP_FM_1; k++) {
 		for (j = 0; j < HEIGHT_1 * WIDTH_1; j++){
@@ -479,7 +500,7 @@ void convDepthwise(float* ipfm, float* opfm, char* fileName_gama, char* fileName
 	getWeights(variance, fileName_variance, op_fsize);		//variance
 
 	//reaarange weights in proper format
-	arrangWeightsDepthwise(filter, filter_proper, 32);
+	arrangWeightsDepthwise(filter, filter_proper, op_fsize);
 	
 	//Create buffer for device
 	d_input = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, iph*ipw*ip_fsize*sizeof(float), ipfm, &err);
@@ -547,6 +568,18 @@ void convDepthwise(float* ipfm, float* opfm, char* fileName_gama, char* fileName
 		exit(1);
 	}
 
+	// printf("Before BN data for Layer %d\n", layer_count);
+
+	// for (k = 0; k < op_fsize; k++){
+	// 	for (j = 111; j < 112; j++){
+	// 		for(i = 0; i < 112; i++){
+	// 			printf("%e\t", opfm[(j*opw+i) + (k*oph*opw)]);
+	// 		}
+	// 		printf("\n");
+	// 	}
+    // printf("\n");
+	// }
+
 	//Batch Normalization of output data
 	for (k = 0; k < op_fsize; k++) {
 		for (j = 0; j < oph * opw; j++){
@@ -566,9 +599,9 @@ void convDepthwise(float* ipfm, float* opfm, char* fileName_gama, char* fileName
 	printf("Data for Layer %d\n", layer_count);
 
 	// for (k = 0; k < op_fsize; k++){
-	// 	for (j = 100; j < 112; j++){
-	// 		for(i = 100; i < 112; i++){
-	// 			printf("%f\t", opfm[(j*opw+i) + (k*oph*opw)]);
+	// 	for (j = 111; j < 112; j++){
+	// 		for(i = 0; i < 112; i++){
+	// 			printf("%e\t", opfm[(j*opw+i) + (k*oph*opw)]);
 	// 		}
 	// 		printf("\n");
 	// 	}
@@ -680,17 +713,17 @@ void convPointwise(float* ipfm, float* opfm, char* fileName_gama, char* fileName
 	//Get kernel execution time
 	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
 
-	printf("Data for Layer %d\n", layer_count);
+	// printf("Pointwise After BN data for Layer %d\n", layer_count);
 
-	for (k = 0; k < op_fsize; k++){
-		for (j = 0; j < 10; j++){
-			for(i = 0; i < 10; i++){
-				printf("%f\t", opfm[(j*opw+i) + (k*oph*opw)]);
-			}
-			printf("\n");
-		}
-    printf("\n");
-	}
+	// for (k = 0; k < op_fsize; k++){
+	// 	for (j = 0; j < oph; j++){
+	// 		for(i = 0; i < opw; i++){
+	// 			printf("%e\t", opfm[(j*opw+i) + (k*oph*opw)]);
+	// 		}
+	// 		printf("\n");
+	// 	}
+    // printf("\n");
+	// }
 
 	clReleaseMemObject(d_input);
 }
@@ -779,33 +812,35 @@ void convAvgPool(float* ipfm, float* opfm, int iph, int ipw,
 void fullyConectedLayer( float* ipfm, float* opfm, char* fileName_bias , char* fileName_filter , int classes , int elements)
 {   
     int i,j;
-	int sum = 0;
+	float sum = 0;
 	/*Bias*/
 	float* h_bias;
 	
     h_bias = (float*)malloc(sizeof(float) * classes);
 
 	//Get bias values
-    getBias(h_bias,fileName_bias, classes);
+    getBias(h_bias, fileName_bias, classes);
 
 	//Get filter values
 	getWeights(filter, fileName_filter, (classes * elements));
 
 	//reaarange weights in proper format
 	arrangWeightsPointwise(filter, filter_proper, elements, classes);
-
+	printf("\n");
     for(i = 0; i < CLASSES; i++)
     {
         for(j = 0; j < ELEMENTS; j++)
         {
-            sum += ipfm[j] * filter_proper[j + (CLASSES * i)];
-
+			//printf("Image data %f\t filter data %f\t Multiplication %f\n",ipfm[j], filter_proper[j + (ELEMENTS * i)], ipfm[j] * filter_proper[j + (ELEMENTS * i)]);
+		    sum += ipfm[j] * filter_proper[j + (ELEMENTS * i)];
+		
 			// if (j == 0)
 			// 	printf("ip %d + fil %d = sum %d \n", ipfm[j],(filter[j] - Z2_28), sum );
         }
-		opfm[i] = sum;
+		opfm[i] = sum + h_bias[i];
 		sum = 0;
     }
+	printf("\n");
     printf("Layer 29 Fully Connected Done\n");
 }
 
@@ -924,149 +959,159 @@ int main(int argc, char** argv) {
 	float* op_fm_2 = (float*) malloc(IP_FM_3 * HEIGHT_3 * WIDTH_3 * sizeof(float));	//output feature map for layer 2
 	convPointwise(op_fm_1, op_fm_2, "gamma/conv_pw_1_bn_gamma_0", "beta/conv_pw_1_bn_beta_0", "mean/conv_pw_1_bn_moving_mean_0", "variance/conv_pw_1_bn_moving_variance_0", "weights_float/conv_pw_1_kernel_0", HEIGHT_2, WIDTH_2, HEIGHT_3, WIDTH_3, IP_FM_2, IP_FM_3);
  
-/* 	//Layer 3 Depth-Wise Convolution
+ 	//Layer 3 Depth-Wise Convolution
 
 	layer_count++;
 	float* op_fm_3 = (float*) malloc(IP_FM_4 * HEIGHT_4 * WIDTH_4 * sizeof(float)); //output feature map for layer 3
-	convDepthwise(op_fm_2, op_fm_3, "bias/BConv2d_2_depthwise", "weights_float/conv_dw_2_depthwise_kernel_0", HEIGHT_3, WIDTH_3, HEIGHT_4, WIDTH_4, IP_FM_3, IP_FM_4, 2);
+	convDepthwise(op_fm_2, op_fm_3, "gamma/conv_dw_2_bn_gamma_0", "beta/conv_dw_2_bn_beta_0", "mean/conv_dw_2_bn_moving_mean_0", "variance/conv_dw_2_bn_moving_variance_0", "weights_float/conv_dw_2_depthwise_kernel_0", HEIGHT_3, WIDTH_3, HEIGHT_4, WIDTH_4, IP_FM_3, IP_FM_4, 2);
+
+	// for (k = 0; k < IP_FM_4; k++){
+	// 	for (j = 0; j < 6; j++){
+	// 		for(i = 0; i < 6; i++){
+	// 			printf("%f\t", op_fm_3[(j*WIDTH_4+i) + (k*HEIGHT_4*WIDTH_4)]);
+	// 		}
+	// 		printf("\n");
+	// 	}
+    // 	printf("\n");
+	// }
 
 	//Layer 4 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_4 = (float*) malloc(IP_FM_5 * HEIGHT_5 * WIDTH_5 * sizeof(float));	//output feature map for layer 4
-	convPointwise(op_fm_3, op_fm_4, "bias/BConv2d_2_pointwise", "weights_float/conv_pw_2_kernel_0", HEIGHT_4, WIDTH_4, HEIGHT_5, WIDTH_5, IP_FM_4, IP_FM_5);
+	convPointwise(op_fm_3, op_fm_4, "gamma/conv_pw_2_bn_gamma_0", "beta/conv_pw_2_bn_beta_0", "mean/conv_pw_2_bn_moving_mean_0", "variance/conv_pw_2_bn_moving_variance_0", "weights_float/conv_pw_2_kernel_0", HEIGHT_4, WIDTH_4, HEIGHT_5, WIDTH_5, IP_FM_4, IP_FM_5);
 
 	//Layer 5 Depth-Wise Convolution
 
 	layer_count++;
 	float* op_fm_5 = (float*) malloc(IP_FM_6 * HEIGHT_6 * WIDTH_6 * sizeof(float)); //output feature map for layer 5
-	convDepthwise(op_fm_4, op_fm_5, "bias/BConv2d_3_depthwise", "weights_float/conv_dw_3_depthwise_kernel_0", HEIGHT_5, WIDTH_5, HEIGHT_6, WIDTH_6, IP_FM_5, IP_FM_6, 1);
+	convDepthwise(op_fm_4, op_fm_5, "gamma/conv_dw_3_bn_gamma_0", "beta/conv_dw_3_bn_beta_0", "mean/conv_dw_3_bn_moving_mean_0", "variance/conv_dw_3_bn_moving_variance_0", "weights_float/conv_dw_3_depthwise_kernel_0", HEIGHT_5, WIDTH_5, HEIGHT_6, WIDTH_6, IP_FM_5, IP_FM_6, 1);
 
 	//Layer 6 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_6 = (float*) malloc(IP_FM_7 * HEIGHT_7 * WIDTH_7 * sizeof(float));	//output feature map for layer 6
-	convPointwise(op_fm_5, op_fm_6, "bias/BConv2d_3_pointwise", "weights_float/conv_pw_3_kernel_0", HEIGHT_6, WIDTH_6, HEIGHT_7, WIDTH_7, IP_FM_6, IP_FM_7);
+	convPointwise(op_fm_5, op_fm_6, "gamma/conv_pw_3_bn_gamma_0", "beta/conv_pw_3_bn_beta_0", "mean/conv_pw_3_bn_moving_mean_0", "variance/conv_pw_3_bn_moving_variance_0", "weights_float/conv_pw_3_kernel_0", HEIGHT_6, WIDTH_6, HEIGHT_7, WIDTH_7, IP_FM_6, IP_FM_7);
 
 	//Layer 7 Depth-Wise Convolution
 
 	layer_count++;
 	float* op_fm_7 = (float*) malloc(IP_FM_8 * HEIGHT_8 * WIDTH_8 * sizeof(float)); //output feature map for layer 7
-	convDepthwise(op_fm_6, op_fm_7, "bias/BConv2d_4_depthwise", "weights_float/conv_dw_4_depthwise_kernel_0", HEIGHT_7, WIDTH_7, HEIGHT_8, WIDTH_8, IP_FM_7, IP_FM_8, 2);
+	convDepthwise(op_fm_6, op_fm_7, "gamma/conv_dw_4_bn_gamma_0", "beta/conv_dw_4_bn_beta_0", "mean/conv_dw_4_bn_moving_mean_0", "variance/conv_dw_4_bn_moving_variance_0", "weights_float/conv_dw_4_depthwise_kernel_0", HEIGHT_7, WIDTH_7, HEIGHT_8, WIDTH_8, IP_FM_7, IP_FM_8, 2);
 
 	//Layer 8 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_8 = (float*) malloc(IP_FM_9 * HEIGHT_9 * WIDTH_9 * sizeof(float));	//output feature map for layer 8
-	convPointwise(op_fm_7, op_fm_8, "bias/BConv2d_4_pointwise", "weights_float/conv_pw_4_kernel_0", HEIGHT_8, WIDTH_8, HEIGHT_9, WIDTH_9, IP_FM_8, IP_FM_9);
+	convPointwise(op_fm_7, op_fm_8, "gamma/conv_pw_4_bn_gamma_0", "beta/conv_pw_4_bn_beta_0", "mean/conv_pw_4_bn_moving_mean_0", "variance/conv_pw_4_bn_moving_variance_0", "weights_float/conv_pw_4_kernel_0", HEIGHT_8, WIDTH_8, HEIGHT_9, WIDTH_9, IP_FM_8, IP_FM_9);
 
 	//Layer 9 Depth-Wise Convolution
 
 	layer_count++;
 	float* op_fm_9 = (float*) malloc(IP_FM_10 * HEIGHT_10 * WIDTH_10 * sizeof(float)); //output feature map for layer 9
-	convDepthwise(op_fm_8, op_fm_9, "bias/BConv2d_5_depthwise", "weights_float/conv_dw_5_depthwise_kernel_0", HEIGHT_9, WIDTH_9, HEIGHT_10, WIDTH_10, IP_FM_9, IP_FM_10, 1);
+	convDepthwise(op_fm_8, op_fm_9, "gamma/conv_dw_5_bn_gamma_0", "beta/conv_dw_5_bn_beta_0", "mean/conv_dw_5_bn_moving_mean_0", "variance/conv_dw_5_bn_moving_variance_0", "weights_float/conv_dw_5_depthwise_kernel_0", HEIGHT_9, WIDTH_9, HEIGHT_10, WIDTH_10, IP_FM_9, IP_FM_10, 1);
 
 	//Layer 10 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_10 = (float*) malloc(IP_FM_11 * HEIGHT_11 * WIDTH_11 * sizeof(float));	//output feature map for layer 10
-	convPointwise(op_fm_9, op_fm_10, "bias/BConv2d_5_pointwise", "weights_float/conv_pw_5_kernel_0", HEIGHT_10, WIDTH_10, HEIGHT_11, WIDTH_11, IP_FM_10, IP_FM_11);
+	convPointwise(op_fm_9, op_fm_10, "gamma/conv_pw_5_bn_gamma_0", "beta/conv_pw_5_bn_beta_0", "mean/conv_pw_5_bn_moving_mean_0", "variance/conv_pw_5_bn_moving_variance_0", "weights_float/conv_pw_5_kernel_0", HEIGHT_10, WIDTH_10, HEIGHT_11, WIDTH_11, IP_FM_10, IP_FM_11);
 
 	//Layer 11 Depth-Wise Convolution
 
 	layer_count++;
 	float* op_fm_11 = (float*) malloc(IP_FM_12 * HEIGHT_12 * WIDTH_12 * sizeof(float)); //output feature map for layer 11
-	convDepthwise(op_fm_10, op_fm_11, "bias/BConv2d_6_depthwise", "weights_float/conv_dw_6_depthwise_kernel_0", HEIGHT_11, WIDTH_11, HEIGHT_12, WIDTH_12, IP_FM_11, IP_FM_12, 2);
+	convDepthwise(op_fm_10, op_fm_11, "gamma/conv_dw_6_bn_gamma_0", "beta/conv_dw_6_bn_beta_0", "mean/conv_dw_6_bn_moving_mean_0", "variance/conv_dw_6_bn_moving_variance_0", "weights_float/conv_dw_6_depthwise_kernel_0", HEIGHT_11, WIDTH_11, HEIGHT_12, WIDTH_12, IP_FM_11, IP_FM_12, 2);
 
 	//Layer 12 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_12 = (float*) malloc(IP_FM_13 * HEIGHT_13 * WIDTH_13 * sizeof(float));	//output feature map for layer 12
-	convPointwise(op_fm_11, op_fm_12, "bias/BConv2d_6_pointwise", "weights_float/conv_pw_6_kernel_0", HEIGHT_12, WIDTH_12, HEIGHT_13, WIDTH_13, IP_FM_12, IP_FM_13);
+	convPointwise(op_fm_11, op_fm_12, "gamma/conv_pw_6_bn_gamma_0", "beta/conv_pw_6_bn_beta_0", "mean/conv_pw_6_bn_moving_mean_0", "variance/conv_pw_6_bn_moving_variance_0", "weights_float/conv_pw_6_kernel_0", HEIGHT_12, WIDTH_12, HEIGHT_13, WIDTH_13, IP_FM_12, IP_FM_13);
 
 	//Layer 13 Depth-Wise Convolution
 
 	layer_count++;
 	float* op_fm_13 = (float*) malloc(IP_FM_14 * HEIGHT_14 * WIDTH_14 * sizeof(float)); //output feature map for layer 13
-	convDepthwise(op_fm_12, op_fm_13, "bias/BConv2d_7_depthwise", "weights_float/conv_dw_7_depthwise_kernel_0", HEIGHT_13, WIDTH_13, HEIGHT_14, WIDTH_14, IP_FM_13, IP_FM_14, 1);
+	convDepthwise(op_fm_12, op_fm_13, "gamma/conv_dw_7_bn_gamma_0", "beta/conv_dw_7_bn_beta_0", "mean/conv_dw_7_bn_moving_mean_0", "variance/conv_dw_7_bn_moving_variance_0", "weights_float/conv_dw_7_depthwise_kernel_0", HEIGHT_13, WIDTH_13, HEIGHT_14, WIDTH_14, IP_FM_13, IP_FM_14, 1);
 
 	//Layer 14 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_14 = (float*) malloc(IP_FM_15 * HEIGHT_15 * WIDTH_15 * sizeof(float));	//output feature map for layer 14
-	convPointwise(op_fm_13, op_fm_14, "bias/BConv2d_7_pointwise", "weights_float/conv_pw_7_kernel_0", HEIGHT_14, WIDTH_14, HEIGHT_15, WIDTH_15, IP_FM_14, IP_FM_15);
+	convPointwise(op_fm_13, op_fm_14, "gamma/conv_pw_7_bn_gamma_0", "beta/conv_pw_7_bn_beta_0", "mean/conv_pw_7_bn_moving_mean_0", "variance/conv_pw_7_bn_moving_variance_0", "weights_float/conv_pw_7_kernel_0", HEIGHT_14, WIDTH_14, HEIGHT_15, WIDTH_15, IP_FM_14, IP_FM_15);
 
 	//Layer 15 Depth-Wise Convolution
 
 	layer_count++;
 	float* op_fm_15 = (float*) malloc(IP_FM_16 * HEIGHT_16 * WIDTH_16 * sizeof(float)); //output feature map for layer 15
-	convDepthwise(op_fm_14, op_fm_15, "bias/BConv2d_8_depthwise", "weights_float/conv_dw_8_depthwise_kernel_0", HEIGHT_15, WIDTH_15, HEIGHT_16, WIDTH_16, IP_FM_15, IP_FM_16, 1);
+	convDepthwise(op_fm_14, op_fm_15, "gamma/conv_dw_8_bn_gamma_0", "beta/conv_dw_8_bn_beta_0", "mean/conv_dw_8_bn_moving_mean_0", "variance/conv_dw_8_bn_moving_variance_0", "weights_float/conv_dw_8_depthwise_kernel_0", HEIGHT_15, WIDTH_15, HEIGHT_16, WIDTH_16, IP_FM_15, IP_FM_16, 1);
 
 	//Layer 16 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_16 = (float*) malloc(IP_FM_17 * HEIGHT_17 * WIDTH_17 * sizeof(float));	//output feature map for layer 16
-	convPointwise(op_fm_15, op_fm_16, "bias/BConv2d_8_pointwise", "weights_float/conv_pw_8_kernel_0", HEIGHT_16, WIDTH_16, HEIGHT_17, WIDTH_17, IP_FM_16, IP_FM_17);
+	convPointwise(op_fm_15, op_fm_16, "gamma/conv_pw_8_bn_gamma_0", "beta/conv_pw_8_bn_beta_0", "mean/conv_pw_8_bn_moving_mean_0", "variance/conv_pw_8_bn_moving_variance_0", "weights_float/conv_pw_8_kernel_0", HEIGHT_16, WIDTH_16, HEIGHT_17, WIDTH_17, IP_FM_16, IP_FM_17);
 
 	//Layer 17 Depth-Wise Convolution
 
 	layer_count++;
 	float* op_fm_17 = (float*) malloc(IP_FM_18 * HEIGHT_18 * WIDTH_18 * sizeof(float)); //output feature map for layer 17
-	convDepthwise(op_fm_16, op_fm_17, "bias/BConv2d_9_depthwise", "weights_float/conv_dw_9_depthwise_kernel_0", HEIGHT_17, WIDTH_17, HEIGHT_18, WIDTH_18, IP_FM_17, IP_FM_18, 1);
+	convDepthwise(op_fm_16, op_fm_17, "gamma/conv_dw_9_bn_gamma_0", "beta/conv_dw_9_bn_beta_0", "mean/conv_dw_9_bn_moving_mean_0", "variance/conv_dw_9_bn_moving_variance_0", "weights_float/conv_dw_9_depthwise_kernel_0", HEIGHT_17, WIDTH_17, HEIGHT_18, WIDTH_18, IP_FM_17, IP_FM_18, 1);
 
 	//Layer 18 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_18 = (float*) malloc(IP_FM_19 * HEIGHT_19 * WIDTH_19 * sizeof(float));	//output feature map for layer 18
-	convPointwise(op_fm_17, op_fm_18, "bias/BConv2d_9_pointwise", "weights_float/conv_pw_9_kernel_0", HEIGHT_18, WIDTH_18, HEIGHT_19, WIDTH_19, IP_FM_18, IP_FM_19);
+	convPointwise(op_fm_17, op_fm_18, "gamma/conv_pw_9_bn_gamma_0", "beta/conv_pw_9_bn_beta_0", "mean/conv_pw_9_bn_moving_mean_0", "variance/conv_pw_9_bn_moving_variance_0", "weights_float/conv_pw_9_kernel_0", HEIGHT_18, WIDTH_18, HEIGHT_19, WIDTH_19, IP_FM_18, IP_FM_19);
 
 	//Layer 19 Depth-Wise Convolution
 
 	layer_count++;
 	float* op_fm_19 = (float*) malloc(IP_FM_20 * HEIGHT_20 * WIDTH_20 * sizeof(float)); //output feature map for layer 19
-	convDepthwise(op_fm_18, op_fm_19, "bias/BConv2d_10_depthwise", "weights_float/conv_dw_10_depthwise_kernel_0", HEIGHT_19, WIDTH_19, HEIGHT_20, WIDTH_20, IP_FM_19, IP_FM_20, 1);
+	convDepthwise(op_fm_18, op_fm_19, "gamma/conv_dw_10_bn_gamma_0", "beta/conv_dw_10_bn_beta_0", "mean/conv_dw_10_bn_moving_mean_0", "variance/conv_dw_10_bn_moving_variance_0", "weights_float/conv_dw_10_depthwise_kernel_0", HEIGHT_19, WIDTH_19, HEIGHT_20, WIDTH_20, IP_FM_19, IP_FM_20, 1);
 
 	//Layer 20 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_20 = (float*) malloc(IP_FM_21 * HEIGHT_21 * WIDTH_21 * sizeof(float));	//output feature map for layer 20
-	convPointwise(op_fm_19, op_fm_20, "bias/BConv2d_10_pointwise", "weights_float/conv_pw_10_kernel_0", HEIGHT_20, WIDTH_20, HEIGHT_21, WIDTH_21, IP_FM_20, IP_FM_21);
+	convPointwise(op_fm_19, op_fm_20, "gamma/conv_pw_10_bn_gamma_0", "beta/conv_pw_10_bn_beta_0", "mean/conv_pw_10_bn_moving_mean_0", "variance/conv_pw_10_bn_moving_variance_0", "weights_float/conv_pw_10_kernel_0", HEIGHT_20, WIDTH_20, HEIGHT_21, WIDTH_21, IP_FM_20, IP_FM_21);
 
 	//Layer 21 Depth-Wise Convolution
 
 	layer_count++;
 	float* op_fm_21 = (float*) malloc(IP_FM_22 * HEIGHT_22 * WIDTH_22 * sizeof(float)); //output feature map for layer 21
-	convDepthwise(op_fm_20, op_fm_21, "bias/BConv2d_11_depthwise", "weights_float/conv_dw_11_depthwise_kernel_0", HEIGHT_21, WIDTH_21, HEIGHT_22, WIDTH_22, IP_FM_21, IP_FM_22, 1);
+	convDepthwise(op_fm_20, op_fm_21, "gamma/conv_dw_11_bn_gamma_0", "beta/conv_dw_11_bn_beta_0", "mean/conv_dw_11_bn_moving_mean_0", "variance/conv_dw_11_bn_moving_variance_0", "weights_float/conv_dw_11_depthwise_kernel_0", HEIGHT_21, WIDTH_21, HEIGHT_22, WIDTH_22, IP_FM_21, IP_FM_22, 1);
 
 	//Layer 22 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_22 = (float*) malloc(IP_FM_23 * HEIGHT_23 * WIDTH_23 * sizeof(float));	//output feature map for layer 22
-	convPointwise(op_fm_21, op_fm_22, "bias/BConv2d_11_pointwise", "weights_float/conv_pw_11_kernel_0", HEIGHT_22, WIDTH_22, HEIGHT_23, WIDTH_23, IP_FM_22, IP_FM_23);
+	convPointwise(op_fm_21, op_fm_22, "gamma/conv_pw_11_bn_gamma_0", "beta/conv_pw_11_bn_beta_0", "mean/conv_pw_11_bn_moving_mean_0", "variance/conv_pw_11_bn_moving_variance_0", "weights_float/conv_pw_11_kernel_0", HEIGHT_22, WIDTH_22, HEIGHT_23, WIDTH_23, IP_FM_22, IP_FM_23);
 
 	//Layer 23 Depth-Wise Convolution
 
 	layer_count++;
 	float* op_fm_23 = (float*) malloc(IP_FM_24 * HEIGHT_24 * WIDTH_24 * sizeof(float)); //output feature map for layer 23
-	convDepthwise(op_fm_22, op_fm_23, "bias/BConv2d_12_depthwise", "weights_float/conv_dw_12_depthwise_kernel_0", HEIGHT_23, WIDTH_23, HEIGHT_24, WIDTH_24, IP_FM_23, IP_FM_24, 2);
+	convDepthwise(op_fm_22, op_fm_23, "gamma/conv_dw_12_bn_gamma_0", "beta/conv_dw_12_bn_beta_0", "mean/conv_dw_12_bn_moving_mean_0", "variance/conv_dw_12_bn_moving_variance_0", "weights_float/conv_dw_12_depthwise_kernel_0", HEIGHT_23, WIDTH_23, HEIGHT_24, WIDTH_24, IP_FM_23, IP_FM_24, 2);
 
 	//Layer 24 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_24 = (float*) malloc(IP_FM_25 * HEIGHT_25 * WIDTH_25 * sizeof(float));	//output feature map for layer 24
-	convPointwise(op_fm_23, op_fm_24, "bias/BConv2d_12_pointwise", "weights_float/conv_pw_12_kernel_0", HEIGHT_24, WIDTH_24, HEIGHT_25, WIDTH_25, IP_FM_24, IP_FM_25);
+	convPointwise(op_fm_23, op_fm_24, "gamma/conv_pw_12_bn_gamma_0", "beta/conv_pw_12_bn_beta_0", "mean/conv_pw_12_bn_moving_mean_0", "variance/conv_pw_12_bn_moving_variance_0", "weights_float/conv_pw_12_kernel_0", HEIGHT_24, WIDTH_24, HEIGHT_25, WIDTH_25, IP_FM_24, IP_FM_25);
 
 	//Layer 25 Depth-Wise Convolution
 
 	layer_count++;
 	float* op_fm_25 = (float*) malloc(IP_FM_26 * HEIGHT_26 * WIDTH_26 * sizeof(float)); //output feature map for layer 25
-	convDepthwise(op_fm_24, op_fm_25, "bias/BConv2d_13_depthwise", "weights_float/conv_dw_13_depthwise_kernel_0", HEIGHT_25, WIDTH_25, HEIGHT_26, WIDTH_26, IP_FM_25, IP_FM_26, 2);
+	convDepthwise(op_fm_24, op_fm_25, "gamma/conv_dw_13_bn_gamma_0", "beta/conv_dw_13_bn_beta_0", "mean/conv_dw_13_bn_moving_mean_0", "variance/conv_dw_13_bn_moving_variance_0", "weights_float/conv_dw_13_depthwise_kernel_0", HEIGHT_25, WIDTH_25, HEIGHT_26, WIDTH_26, IP_FM_25, IP_FM_26, 1);
 
 	//Layer 26 Point-Wise Convolution
 
 	layer_count++;
 	float* op_fm_26 = (float*) malloc(IP_FM_27 * HEIGHT_27 * WIDTH_27 * sizeof(float));	//output feature map for layer 26
-	convPointwise(op_fm_25, op_fm_26, "bias/BConv2d_13_pointwise", "weights_float/conv_pw_13_kernel_0", HEIGHT_26, WIDTH_26, HEIGHT_27, WIDTH_27, IP_FM_26, IP_FM_27);
+	convPointwise(op_fm_25, op_fm_26, "gamma/conv_pw_13_bn_gamma_0", "beta/conv_pw_13_bn_beta_0", "mean/conv_pw_13_bn_moving_mean_0", "variance/conv_pw_13_bn_moving_variance_0", "weights_float/conv_pw_13_kernel_0", HEIGHT_26, WIDTH_26, HEIGHT_27, WIDTH_27, IP_FM_26, IP_FM_27);
 	
 	// for (k = 0; k < IP_FM_27; k++){
 	// 	for (j = 0; j < 7; j++){
@@ -1084,38 +1129,32 @@ int main(int argc, char** argv) {
 	float* op_fm_27 = (float*) malloc(ELEMENTS * HEIGHT_28 * WIDTH_28 * sizeof(float));	//output feature map for layer 27
 	convAvgPool(op_fm_26, op_fm_27, HEIGHT_27, WIDTH_27, HEIGHT_28, WIDTH_28, IP_FM_27, ELEMENTS);
 	// for (k = 0; k < ELEMENTS; k++){
-	// 	printf("%f\t", op_fm_27[k]);
+	// 	printf("%e\t", op_fm_27[k]);
 	// } 
 	//Layer 28 Fully COnnected
-	printf("Avg pool done");
+	printf("Avg pool done\n");
 	layer_count++;
 	float* op_fm_28 = (float*) malloc(CLASSES_SOFTMAX * HEIGHT_29 * WIDTH_29 * sizeof(float));	//output feature map for layer 28
-	fullyConectedLayer(op_fm_27, op_fm_28, "bias/BConv2d_fullyconnected", "weights_float/conv_preds_kernel_0", CLASSES, ELEMENTS);
-	// for (k = 0; k < CLASSES; k++){
-	// 	for (j = 0; j < 1; j++){
-	// 		for(i = 0; i < 1; i++){
-	// 			printf("%f\t", op_fm_28[(j*WIDTH_28+i) + (k*HEIGHT_28*WIDTH_28)]);
-	// 		}
-	// 		//printf("\n");
-	// 	}
-    // //printf("\n");
-	// } 
+	fullyConectedLayer(op_fm_27, op_fm_28, "bias/conv_preds_bias_0", "weights_float/conv_preds_kernel_0", CLASSES, ELEMENTS);
+	for (k = 0; k < CLASSES; k++){
+		printf("%e\t", op_fm_28[k]);
+	} 
 
 	//Layer 29 Softmax
 
 	layer_count++;
 	softmax(op_fm_28);
-*/
+
 	//Shutdown and cleanup
 	free(filter);
-	free(op_fm_0);	free(op_fm_1);	free(op_fm_2);	//free(op_fm_3);
-	/* free(op_fm_4);	free(op_fm_5);	free(op_fm_6);	free(op_fm_7);
+	/* free(op_fm_0);	free(op_fm_1);	free(op_fm_2);	free(op_fm_3);
+	free(op_fm_4);	free(op_fm_5);	free(op_fm_6);	free(op_fm_7);
 	free(op_fm_8);	free(op_fm_9);	free(op_fm_10);	free(op_fm_11);
 	free(op_fm_12);	free(op_fm_13);	free(op_fm_14);	free(op_fm_15);
 	free(op_fm_16);	free(op_fm_17);	free(op_fm_18);	free(op_fm_19);
 	free(op_fm_20);	free(op_fm_21);	free(op_fm_22);	free(op_fm_23);
 	free(op_fm_24);	free(op_fm_25);	free(op_fm_26);	free(op_fm_27);
-	free(op_fm_28);*/
+	free(op_fm_28); */
 	clReleaseMemObject(d_output);
 	clReleaseMemObject(d_filter);
 	clReleaseProgram(program);
