@@ -318,30 +318,10 @@ void convStandard (float* opfm) {
 	//separate R,G and B pixels
 	seperateChannels(image, image_r, image_g, image_b);
 
-	// printf("R data in uint8 ");
-	// for (i = 0; i < HEIGHT_0*WIDTH_0; i++){
-	// 	printf("%d\t", image_r[i]);
-	// }
-
 	//Convert uint8 image data to float
 	uintToFloat(image_r, image_r_f);
 	uintToFloat(image_g, image_g_f);
 	uintToFloat(image_b, image_b_f);
-
-	// //for (k = 0; k < 32; k++){
-	// 	for (j = 223; j < 224; j++){
-	// 		for(i = 220; i < 224; i++){
-	// 			printf("%e\t", image_r_f[(j*224+i)]);
-	// 		}
-	// 		printf("\n");
-	// 	}
-    // // printf("\n");
-	// // }
-	
-	// printf("R data in float ");
-	// for (i = 0; i < HEIGHT_0*WIDTH_0; i++){
-	// 	printf("%.*g\t", image_r_f[i]);
-	// }
 
 	//Get filter values
     getWeights(filter,"weights_float/conv1_kernel_0",(IP_FM_1*FDIM*FDIM*FDIM));
