@@ -1,4 +1,19 @@
 
+/**
+ * @brief  Standard Convolution Kernel
+ * @author  Ushma
+ * @date June 20, 2019
+ * @param 1. float* output : Ouput feature map pointer
+ * 		  2. float* inp_image_r : Ip image R Channel
+ *        3. float* inp_image_g : Ip image G Channel
+ * 		  4. float* inp_image_b : Ip image B Channel
+ * 		  5. float* filter_k : Weights pointer
+ * 		  6. int rows : Rows of input image
+ * 		  7. int cols : Columns of input image
+ * 		  8. int filtersize  : Filter Height/Width
+ * 		  9. int stride : Stride value
+ * 		 10. int op_size : No of Output Feature Map
+ */
 __kernel void convolute(__global float* output, 
 						__global float* inp_image_r, 
 						__global float* inp_image_g, 
@@ -88,7 +103,19 @@ __kernel void convolute(__global float* output,
 		filter_count++;
 	}
 }
-
+/**
+ * @brief  Depthwise Convolution Kernel
+ * @author  Ushma
+ * @date June 20, 2019
+ * @param 1. float* output : Ouput feature map pointer
+ * 		  2. float* inp_image : Input Feature Map Pointer
+ * 		  3. float* filter_k : Weights pointer
+ * 		  4. int rows : Rows of input image
+ * 		  5. int cols : Columns of input image
+ * 		  6. int filtersize  : Filter Height/Width
+ * 		  7. int stride : Stride value
+ * 		  8. int op_size : No of Output Feature Map
+ */
 __kernel void depthwise(__global float* output, 
 						__global float* inp_image, 
 						__global float* filter_k, 
@@ -157,7 +184,18 @@ __kernel void depthwise(__global float* output,
 		filter_count++;	
 	}
 }
-
+/**
+ * @brief  Pointwise Convolution Kernel
+ * @author  Ushma
+ * @date June 20, 2019
+ * @param 1. float* output : Ouput feature map pointer
+ * 		  2. float* inp_image : Input Feature Map Pointer
+ * 		  3. float* filter_k : Weights pointer
+ * 		  4. int rows : Rows of input image
+ * 		  5. int cols : Columns of input image
+ * 		  6. int filtersize  : Filter Height/Width
+ * 		  7. int op_size : No of Output Feature Map
+ */
 __kernel void pointwise(__global float* output, 
 						__global float* inp_image, 
 						__global float* filter_k, 
@@ -186,6 +224,15 @@ __kernel void pointwise(__global float* output,
 		filter_count++;
 	}
 }
+/**
+ * @brief  Average Pool Kernel
+ * @author  Ushma
+ * @date June 20, 2019
+ * @param 1. float* output : Ouput feature map pointer
+ * 		  2. float* inp_image : Input Feature Map Pointer
+ * 		  3. int rows : Rows of input image
+ * 		  4. int cols : Columns of input image
+ */
 __kernel void avgPool(__global float* output, 
 					  __global float* inp_image, 
 					  int rows, int cols ) {
