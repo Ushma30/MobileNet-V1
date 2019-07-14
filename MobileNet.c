@@ -63,6 +63,14 @@ void arrangWeights(float* ip, float* op);
 void arrangWeightsDepthwise(float* ip, float* op, int fsize);
 void arrangWeightsPointwise(float* ip, float* op, int fsize, int totalFilter);
 
+/**
+ * @brief  Load opencl kernel from the kernel file
+ * @author  Kaustubh
+ * @date June 8, 2019
+ * @param 1. kernel_path
+ *        2. Kernel pointer buffer
+ * @return None
+ */
 long LoadOpenCLKernel(char const* path, char **buf)
 {
 	FILE  *fp;
@@ -117,6 +125,13 @@ long LoadOpenCLKernel(char const* path, char **buf)
 	return (long)fsz;
 }
 
+/**
+ * @brief  Configure OpenCL device config
+ * @author  Kaustubh
+ * @date June 8, 2019
+ * @param None
+ * @return None
+ */
 int openClDeviceConfig(){
 
 	printf("Initializing OpenCL device...\n"); 
@@ -134,6 +149,14 @@ int openClDeviceConfig(){
 	}
 
 }
+
+/**
+ * @brief  Create OpenCL context 
+ * @author  Kaustubh
+ * @date June 8, 2019
+ * @param None
+ * @return None
+ */
 
 int openClCreateContext() {
 	// Create a compute context 
@@ -153,6 +176,13 @@ int openClCreateContext() {
 	}
 }
 
+/**
+ * @brief  Create OpenCL Kernel
+ * @author  Kaustubh
+ * @date June 8, 2019
+ * @param None
+ * @return None
+ */
 int openClCreateKernel() {
 	
 	// Create the compute program from the source file
@@ -217,6 +247,18 @@ int openClCreateKernel() {
 	}
 }
 
+/**
+ * @brief   Seperate the RGB channel of the image
+ * 			Source Image pattern RGBRGBRGBRGB...
+ * 			OP Pattern RRR...GGG...BBB
+ * @author  Kaustubh
+ * @date June 8, 2019
+ * @param 1. unsigned char* imd : input image
+ *        2. unsigned char* im1 : R Channel
+ * 		  3. unsigned char* im2 : G Channel
+ * 		  4. unsigned char* im3 : B Channel
+ * @return None
+ */
 void seperateChannels(unsigned char* imd, unsigned char* im1, unsigned char* im2, unsigned char* im3){
     int i,j;    
     for(i=0, j=0; i<HEIGHT_0*WIDTH_0; i++, j+=3){
@@ -226,6 +268,16 @@ void seperateChannels(unsigned char* imd, unsigned char* im1, unsigned char* im2
     }
 }
 
+/**
+ * @brief   Convert uint8 image to flaot 
+ * 			Input Image Range [0...255]
+ * 			Output Image Range [-1...1]
+ * @author  Ushma
+ * @date July 4, 2019
+ * @param 1. unsigned char* im
+ *        2. float* imf
+ * @return None
+ */
 void uintToFloat(unsigned char* im, float* imf) {
 	int i;
 	float offset = 127.5;
@@ -236,7 +288,7 @@ void uintToFloat(unsigned char* im, float* imf) {
 
 /**
  * @brief  Get the weights from the numpy array file
- * @author  Kausutbh
+ * @author  Kaustubh
  * @date July 4, 2019
  * @param 1. float* f : variable to put weights into
  *        2. char filename[] : File name of the weights filename
@@ -257,7 +309,7 @@ void getWeights(float* aryWeight, char filename[], int size)
 }
 /**
  * @brief  Get the bias from the numpy array file
- * @author  Kausutbh
+ * @author  Kaustubh
  * @date June 20, 2019
  * @param 1. int* f : variable to put weights into
  *        2. char filename[] : File name of the weights filename
@@ -273,7 +325,15 @@ void getBias(float* f, char filename[], int size)
     fread(f,sizeof(int),size,latfile);
     fclose(latfile);
 }
-//Function to read image files in C
+
+/**
+ * @brief  Read the image from the file
+ * @author  Kaustubh
+ * @date June 20, 2019
+ * @param 1. unsigned char frame : image pointer to store image
+ *        2. char filename[] : File name of the image filename
+ * @return None
+ */
 int decode_image(unsigned char frame[HEIGHT_0 * WIDTH_0 * FDIM],char filename[])
 {
 	FILE *pFile;
@@ -284,7 +344,14 @@ int decode_image(unsigned char frame[HEIGHT_0 * WIDTH_0 * FDIM],char filename[])
 	return 0;
 }
 
-
+/**
+ * @brief  Display Data 
+ * @author  Ushma
+ * @date June 20, 2019
+ * @param 1. unsigned char frame : image pointer to store image
+ *        2. char filename[] : File name of the image filename
+ * @return None
+ */
 void display_data(unsigned char* data,int num) {
 	int i,j;
 	for (j = 0 ;j < num ; j++){
@@ -296,6 +363,13 @@ void display_data(unsigned char* data,int num) {
 	printf("\n");
 }
 
+/**
+ * @brief  Standard Convolution 
+ * @author  Ushma and Kaustubh
+ * @date June 20, 2019
+ * @param 1. float* opfm : pointer to store op feature map
+ * @return None
+ */
 void convStandard (float* opfm) {
 
 	cl_mem d_image_r; //R channel
@@ -461,6 +535,26 @@ void convStandard (float* opfm) {
 
 }
 
+/**
+ * @brief  Depthwise Convolution 
+ * @author  Ushma and Kaustubh
+ * @date June 20, 2019
+ * @param 1. float* ipfm : Input Feature Map 
+ * 		  2. float* opfm : Output Feature Mao
+ *        3. char* fileName_gama : filename for Gamma
+ * 		  4. char* fileName_beta : filename for Beta
+ * 		  5. char* fileName_mean : filename for Moving Mean
+ * 		  6. char* fileName_variance : filename for Moving Variance
+ * 		  7. char* fileName_filter : filename for weights
+ * 		  8. int iph : Input image Height
+ * 		  9. int ipw : Input image Width
+ * 		 10. int oph : Output Feature Map Height
+ * 		 11. int opw : Output Feature Map width
+ * 		 12. int ip_fsize : No of input feature map
+ * 		 13. int op_fsize : No of ouput feature map
+ * 		 14. int stride : Convolution stride
+ * @return None
+ */
 void convDepthwise(float* ipfm, float* opfm, char* fileName_gama, char* fileName_beta, char* fileName_mean, char* fileName_variance, 
 				   char* fileName_filter, int iph, int ipw, int oph, int opw, int ip_fsize, 
 				   int op_fsize, int stride) {
@@ -592,6 +686,26 @@ void convDepthwise(float* ipfm, float* opfm, char* fileName_gama, char* fileName
 
 }
 
+/**
+ * @brief  Pointwise Convolution 
+ * @author  Ushma and Kaustubh
+ * @date June 20, 2019
+ * @param 1. float* ipfm : Input Feature Map 
+ * 		  2. float* opfm : Output Feature Mao
+ *        3. char* fileName_gama : filename for Gamma
+ * 		  4. char* fileName_beta : filename for Beta
+ * 		  5. char* fileName_mean : filename for Moving Mean
+ * 		  6. char* fileName_variance : filename for Moving Variance
+ * 		  7. char* fileName_filter : filename for weights
+ * 		  8. int iph : Input image Height
+ * 		  9. int ipw : Input image Width
+ * 		 10. int oph : Output Feature Map Height
+ * 		 11. int opw : Output Feature Map width
+ * 		 12. int ip_fsize : No of input feature map
+ * 		 13. int op_fsize : No of ouput feature map
+ * 		 14. int stride : Convolution stride
+ * @return None
+ */
 void convPointwise(float* ipfm, float* opfm, char* fileName_gama, char* fileName_beta, char* fileName_mean, char* fileName_variance,
 					char* fileName_filter, int iph, int ipw, int oph, int opw, int ip_fsize, int op_fsize) {
 
@@ -707,7 +821,20 @@ void convPointwise(float* ipfm, float* opfm, char* fileName_gama, char* fileName
 
 	clReleaseMemObject(d_input);
 }
-
+/**
+ * @brief  Average pool 
+ * @author  Ushma
+ * @date June 20, 2019
+ * @param 1. float* ipfm : Input Feature Map 
+ * 		  2. float* opfm : Output Feature Mao
+ * 		  3. int iph : Input image Height
+ * 		  4. int ipw : Input image Width
+ * 		  5. int oph : Output Feature Map Height
+ * 		  6. int opw : Output Feature Map width
+ * 		  7. int ip_fsize : No of input feature map
+ * 		  8. int op_fsize : No of ouput feature map
+ * @return None
+ */
 void convAvgPool(float* ipfm, float* opfm, int iph, int ipw, 
 				int oph, int opw, int ip_fsize, int op_fsize) {
 
@@ -789,6 +916,19 @@ void convAvgPool(float* ipfm, float* opfm, int iph, int ipw,
 	clReleaseMemObject(d_input);
 }
 
+/**
+ * @brief  Fullyconnected Dense Layer 
+ * @author  Kaustubh
+ * @date June 20, 2019
+ * @param 1. float* ipfm : Input Feature Map 
+ * 		  2. float* opfm : Output Feature Mao
+ *        3. char* fileName_bias : filename for Bias
+ * 		  7. char* fileName_filter : filename for weights
+ * 		  7. char* fileName_filter : filename for weights
+ * 		  8. int classes : No of prediction classses
+ * 		  9. int elements : No of elements is previous layer
+ * @return None
+ */
 void fullyConectedLayer( float* ipfm, float* opfm, char* fileName_bias , char* fileName_filter , int classes , int elements)
 {   
     int i,j;
@@ -824,7 +964,13 @@ void fullyConectedLayer( float* ipfm, float* opfm, char* fileName_bias , char* f
     printf("Layer 29 Fully Connected Done\n");
 }
 
-//Softmax
+/**
+ * @brief  Softmax 
+ * @author  Kaustubh
+ * @date June 20, 2019
+ * @param 1. float* ipfm : Input Feature Map 
+ * @return None
+ */
 void softmax (float* ipfm)
 {
     float expo[1000], sum, max = 0.0;
@@ -856,8 +1002,8 @@ void softmax (float* ipfm)
 }
 
 /**
- * @brief  reaarange the weights in the format required by the kernel
- * @author  Kausutbh
+ * @brief  rearange the weights in the format required by the kernel
+ * @author  Kaustubh
  * @date July 4, 2019
  * @param 1. float* ip
  *        2. float* op
@@ -883,7 +1029,15 @@ void arrangWeights(float* ip, float* op)
     }
 
 }
-
+/**
+ * @brief  rearange the weights for depthwise kernel
+ * @author  Kaustubh
+ * @date July 4, 2019
+ * @param 1. float* ip
+ *        2. float* op
+ * 		  3, int fsize
+ * @return None
+ */
 void arrangWeightsDepthwise(float* ip, float* op, int fsize)
 {
     int nof, channel,ele_per_filter,i=0;
@@ -895,6 +1049,17 @@ void arrangWeightsDepthwise(float* ip, float* op, int fsize)
         }
     }
 }
+
+/**
+ * @brief  rearange the weights for pointwise kernel
+ * @author  Kaustubh
+ * @date July 4, 2019
+ * @param 1. float* ip
+ *        2. float* op
+ * 		  3. int fsize
+ * 		  4. int totalFilter
+ * @return None
+ */
 void arrangWeightsPointwise(float* ip, float* op, int fsize, int totalFilter)
 {
     int nof, channel,ele_per_filter,i=0;
@@ -906,8 +1071,13 @@ void arrangWeightsPointwise(float* ip, float* op, int fsize, int totalFilter)
         }
     }
 }
-//This is the main function
-int main(int argc, char** argv) {
+/**
+ * @brief  main
+ * @author  Kaustubh and Ushma
+ * @date July 4, 2019
+ * @param None
+ * @return None
+ */int main(void) {
 
     
 	filter = (float*) malloc(FILTER_MAX*FILTER_MAX*FDIM*FDIM*FDIM*sizeof(float));
