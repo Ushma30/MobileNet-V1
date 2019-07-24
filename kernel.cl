@@ -76,7 +76,7 @@ __kernel void convolute(__global unsigned char* output,
 			printf("Sbias: %f\n",Sbias);
 			printf("(M * sum): %f\n",(M * sum));
 			printf("(bias[filter_count] * Sbias): %f\n",(bias[filter_count] * Sbias));
-			printf("final %d\n",((int)(M * sum) + (int)(bias[filter_count] * Sbias)));
+			printf("final %d\n",(M * sum) + (bias[filter_count] * Sbias)));
 		}
 
 		sum = (M * sum) + (bias[filter_count] * Sbias);
