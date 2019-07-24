@@ -315,10 +315,17 @@ void convStandard (unsigned char* opfm) {
     getBias(h_bias,"bias/BConv2d_0",IP_FM_1);
 
 	//Read pixel values from input image
-	decode_image(image,"tiger.ppm"); 
+	decode_image(image,"testData/tiger.ppm"); 
 
 	//separate R,G and B pixels
 	seperateChannels(image, image_r, image_g, image_b);
+
+	for(i = 0; i < 10; i++) {
+		for (j = 0; j< 10; j++) {
+			printf("%d\t",image_b[(i * WIDTH_0) + j]);
+		}
+		printf("\n");
+	}
 
 	//Get filter values
     getWeights(filter,"weights/Conv2d_0",(IP_FM_1*FDIM*FDIM*FDIM));
@@ -414,8 +421,8 @@ void convStandard (unsigned char* opfm) {
 	printf("Data for Layer %d\n", layer_count);
  
 	for (k = 0; k <= 0; k++){
-		for (j = 0; j < 20; j++){
-			for(i = 0; i < 20; i++){
+		for (j = 0; j < 10; j++){
+			for(i = 0; i < 10; i++){
 				printf("%d\t", opfm[(j*112+i) + (k*112*112)]);
 			}
 			printf("\n");
@@ -753,7 +760,7 @@ void fullyConectedLayer( unsigned char* ipfm, unsigned char* opfm, char* fileNam
     {
         for(j = 0; j < ELEMENTS; j++)
         {
-            sum += (ipfm[j] * (filter[j + (CLASSES * i)] - Z2_28));
+            sum += (ipfm[j] * (filter[j + (ELEMENTS * i)] - Z2_28));
 			// if (j == 0)
 			// 	printf("ip %d + fil %d = sum %d \n", ipfm[j],(filter[j] - Z2_28), sum );
         }
@@ -805,7 +812,7 @@ int main(int argc, char** argv) {
 	openClCreateKernel();
 	convStandard(op_fm_0); //Layer 0 - Standard Convolution
 	
-	//Layer 1 Depth-Wise Convolution
+	/*//Layer 1 Depth-Wise Convolution
 	
 	layer_count++;
 	unsigned char* op_fm_1 = (unsigned char*) malloc(IP_FM_2 * HEIGHT_2 * WIDTH_2 * sizeof(unsigned char)); //output feature map for layer 1
@@ -1007,7 +1014,7 @@ int main(int argc, char** argv) {
 	free(op_fm_16);	free(op_fm_17);	free(op_fm_18);	free(op_fm_19);
 	free(op_fm_20);	free(op_fm_21);	free(op_fm_22);	free(op_fm_23);
 	free(op_fm_24);	free(op_fm_25);	free(op_fm_26);	free(op_fm_27);
-	free(op_fm_28);
+	free(op_fm_28);*/
 	clReleaseMemObject(d_output);
 	clReleaseMemObject(d_filter);
 	clReleaseProgram(program);
