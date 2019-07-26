@@ -28,6 +28,7 @@
 
 unsigned char image[HEIGHT_0 * WIDTH_0 * FDIM]; //image with 3 input channels
 unsigned char* filter;
+unsigned char* filter_proper;
 int err;
 int layer_count = 0;
 
@@ -269,6 +270,51 @@ void getBias(int* f, char filename[], int size)
     fread(f,sizeof(int),size,latfile);
     fclose(latfile);
 }
+
+/**
+ * @brief  rearange the weights for depthwise kernel
+ * @author  Kaustubh
+ * @date July 4, 2019
+ * @param 1. float* ip
+ *        2. float* op
+ * 		  3, int fsize
+ * @return None
+ */
+void arrangWeightsDepthwise(unsigned char* ip, unsigned char* op, int fsize)
+{
+    int nof, channel,ele_per_filter,i=0;
+    for (nof=0; nof<fsize; nof++)
+    {
+        for(ele_per_filter=0;ele_per_filter<9;ele_per_filter++,i++)
+        {
+            op[i]=ip[0+(ele_per_filter*(fsize))+nof];   
+        }
+    }
+}
+
+
+void QuantizeMultiplierSmallerThanOne(float real_multiplier,
+                                      int* quantized_multiplier,
+                                      int* right_shift) {
+	int s = 0;
+	while (real_multiplier < 0.5f) {
+		real_multiplier *= 2.0f;
+		s++;
+	}
+
+	int64_t q =	(int64_t)round(real_multiplier * (1ll << 31));
+	// Handle the special case when the real multiplier was so close to 1
+	// that its fixed-point approximation was undistinguishable from 1.
+	// We handle this by dividing it by two, and remembering to decrement
+	// the right shift amount.
+	if (q == (1ll << 31)) {
+		q /= 2;
+		s--;
+  	}
+  	*quantized_multiplier = (int)(q);
+  	*right_shift = s;
+}
+
 //Function to read image files in C
 int decode_image(unsigned char frame[HEIGHT_0 * WIDTH_0 * FDIM],char filename[])
 {
@@ -305,6 +351,7 @@ void convStandard (unsigned char* opfm) {
 	unsigned char* image_b = (unsigned char*) malloc(HEIGHT_0 * WIDTH_0 * sizeof(unsigned char)); //B channel
 
 	int i,j,k;
+	int Q_0, right_shift;	//parameters to compute Quantized multiplier
 
 	/*Bias*/
 	int* h_bias;
@@ -319,13 +366,9 @@ void convStandard (unsigned char* opfm) {
 
 	//separate R,G and B pixels
 	seperateChannels(image, image_r, image_g, image_b);
-
-	for(i = 0; i < 10; i++) {
-		for (j = 0; j< 10; j++) {
-			printf("%d\t",image_b[(i * WIDTH_0) + j]);
-		}
-		printf("\n");
-	}
+	
+	//Compute Quantized Multiplier from Real Multiplier
+	QuantizeMultiplierSmallerThanOne(M_0, &Q_0, &right_shift);
 
 	//Get filter values
     getWeights(filter,"weights/Conv2d_0",(IP_FM_1*FDIM*FDIM*FDIM));
@@ -334,7 +377,7 @@ void convStandard (unsigned char* opfm) {
 	d_image_r = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_r, &err);
 	d_image_g = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_g, &err);
 	d_image_b = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_b, &err);
-	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, (HEIGHT_1)*(WIDTH_1)*IP_FM_1*sizeof(unsigned char), NULL, &err);
+	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, HEIGHT_1*WIDTH_1*IP_FM_1*sizeof(unsigned char), NULL, &err);
 	d_filter = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, IP_FM_1*FDIM*FDIM*FDIM*sizeof(unsigned char), filter, &err);
 	d_bias = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, IP_FM_1*sizeof(int), h_bias, &err);
 
@@ -361,7 +404,7 @@ void convStandard (unsigned char* opfm) {
 	int filtersize = FDIM;
 	int no_fm_0 = OP_FM_0;
     int stride = 2;
-	float M = M_0;
+	int Q = Q_0;
 	float Sbias = SBIAS_0;
 	unsigned char Z1 = Z1_0;
 	unsigned char Z2 = Z2_0;
@@ -377,10 +420,11 @@ void convStandard (unsigned char* opfm) {
 	err |= clSetKernelArg(standard_conv, 8, sizeof(int), (void *)&filtersize);
     err |= clSetKernelArg(standard_conv, 9, sizeof(int), (void *)&stride);
     err |= clSetKernelArg(standard_conv, 10, sizeof(int), (void *)&no_fm_0);
-	err |= clSetKernelArg(standard_conv, 11, sizeof(float), (void *)&M);
+	err |= clSetKernelArg(standard_conv, 11, sizeof(int), (void *)&Q);
 	err |= clSetKernelArg(standard_conv, 12, sizeof(float), (void *)&Sbias);
 	err |= clSetKernelArg(standard_conv, 13, sizeof(unsigned char), (void *)&Z1);
 	err |= clSetKernelArg(standard_conv, 14, sizeof(unsigned char), (void *)&Z2);
+	err |= clSetKernelArg(standard_conv, 15, sizeof(int), (void *)&right_shift);
 
 
 	if (err != CL_SUCCESS)
@@ -418,17 +462,18 @@ void convStandard (unsigned char* opfm) {
 	//Get kernel execution time
 	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
 
-	printf("Data for Layer %d\n", layer_count);
+	// printf("Data for Layer %d\n", layer_count);
  
-	for (k = 0; k <= 0; k++){
-		for (j = 0; j < 10; j++){
-			for(i = 0; i < 10; i++){
-				printf("%d\t", opfm[(j*112+i) + (k*112*112)]);
-			}
-			printf("\n");
-		}
-    printf("\n");
-	}	
+	// for (k = 0; k < 32; k++){
+	// 	printf("Layer No: %d\n",k);
+	// 	for (j = 100; j < 112; j++){
+	// 		for(i = 100; i < 112; i++){
+	// 			printf("%d\t", opfm[(j*112+i) + (k*112*112)]);
+	// 		}
+	// 		printf("\n");
+	// 	}
+    // printf("\n");
+	// }	
 
 	free(image_r);
 	free(image_g);
@@ -449,6 +494,7 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 
 	kernelExecTimeNs = 0;
 	int i,j,k;
+	int Q, right_shift;	//parameters to compute Quantized multiplier
 
 	/*Bias*/
 	int* h_bias;
@@ -460,11 +506,16 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 
 	//Get filter values
 	getWeights(filter,fileName_filter,(op_fsize*FDIM*FDIM));
+
+	//Compute Quantized Multiplier from Real Multiplier
+	QuantizeMultiplierSmallerThanOne(M, &Q, &right_shift);
 	
+	arrangWeightsDepthwise(filter, filter_proper, op_fsize);
+
 	//Create buffer for device
 	d_input = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, iph*ipw*ip_fsize*sizeof(unsigned char), ipfm, &err);
 	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, oph*opw*op_fsize*sizeof(unsigned char), NULL, &err);
-	d_filter = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, op_fsize*FDIM*FDIM*sizeof(unsigned char), filter, &err);	
+	d_filter = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, op_fsize*FDIM*FDIM*sizeof(unsigned char), filter_proper, &err);	
 	d_bias = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, op_fsize*sizeof(int), h_bias, &err);
 
 	if (!d_input || !d_filter || !d_output || !d_bias)
@@ -474,7 +525,7 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	}    
 	
 	err = clEnqueueWriteBuffer(commands, d_input, CL_TRUE, 0, iph*ipw*ip_fsize*sizeof(unsigned char), ipfm, 0, NULL, NULL);
-	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, op_fsize*FDIM*FDIM*sizeof(unsigned char), filter, 0, NULL, NULL);
+	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, op_fsize*FDIM*FDIM*sizeof(unsigned char), filter_proper, 0, NULL, NULL);
 	err |= clEnqueueWriteBuffer(commands, d_bias, CL_TRUE, 0, op_fsize*sizeof(int), h_bias, 0, NULL, NULL);   
 
 	if (err != CL_SUCCESS)
@@ -496,9 +547,10 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	err |= clSetKernelArg(depthwise_conv, 6, sizeof(int), (void *)&filtersize);
 	err |= clSetKernelArg(depthwise_conv, 7, sizeof(int), (void *)&stride);
 	err |= clSetKernelArg(depthwise_conv, 8, sizeof(int), (void *)&op_fsize);
-	err |= clSetKernelArg(depthwise_conv, 9, sizeof(float), (void *)&M);
+	err |= clSetKernelArg(depthwise_conv, 9, sizeof(int), (void *)&Q);
 	err |= clSetKernelArg(depthwise_conv, 10, sizeof(float), (void *)&Sbias);
 	err |= clSetKernelArg(depthwise_conv, 11, sizeof(unsigned char), (void *)&Z2);
+	err |= clSetKernelArg(depthwise_conv, 12, sizeof(int), (void *)&right_shift);
     
 	if (err != CL_SUCCESS)
 	{ 
@@ -534,17 +586,18 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 
 	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
 
-	/*	printf("Data for Layer %d\n", layer_count);
+	// printf("Data for Layer %d\n", layer_count);
 
-	for (k = 0; k < 32; k++){
-		for (j = 0; j < 5; j++){
-			for(i = 0; i < 5; i++){
-				printf("%u\t", opfm[(j*112+i) + k]);
-			}
-			printf("\n");
-		}
-    	printf("\n");
-	} */
+	// for (k = 0; k < op_fsize; k++){
+	// 	printf("Layer No: %d\n", k);
+	// 	for (j = 0; j < 15; j++){
+	// 		for(i = 0; i < 15; i++){
+	// 			printf("%d\t", opfm[(j*opw+i) + (k*oph*opw)]);
+	// 		}
+	// 		printf("\n");
+	// 	}
+    // printf("\n");
+	// }
 	
 	clReleaseMemObject(d_input);
 
@@ -559,6 +612,7 @@ void convPointwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 
 	kernelExecTimeNs = 0;
 	int i,j,k;
+	int Q, right_shift;	//parameters to compute Quantized multiplier
 
 	/*Bias*/
 	int* h_bias;
@@ -570,6 +624,9 @@ void convPointwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 
 	//Get filter values
 	getWeights(filter,fileName_filter,(ip_fsize*op_fsize*FDIM_P*FDIM_P));
+
+	//Compute Quantized Multiplier from Real Multiplier
+	QuantizeMultiplierSmallerThanOne(M, &Q, &right_shift);
 	
 	//Create buffer for device
 	d_input = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, iph*ipw*ip_fsize*sizeof(unsigned char), ipfm, &err);
@@ -605,9 +662,10 @@ void convPointwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	err |= clSetKernelArg(pointwise_conv, 5, sizeof(int), (void *)&cols);
 	err |= clSetKernelArg(pointwise_conv, 6, sizeof(int), (void *)&filtersize);
 	err |= clSetKernelArg(pointwise_conv, 7, sizeof(int), (void *)&op_fsize);
-	err |= clSetKernelArg(pointwise_conv, 8, sizeof(float), (void *)&M);
+	err |= clSetKernelArg(pointwise_conv, 8, sizeof(int), (void *)&Q);
 	err |= clSetKernelArg(pointwise_conv, 9, sizeof(float), (void *)&Sbias);
 	err |= clSetKernelArg(pointwise_conv, 10, sizeof(unsigned char), (void *)&Z2);
+	err |= clSetKernelArg(pointwise_conv, 11, sizeof(int), (void *)&right_shift);
 	
 	if (err != CL_SUCCESS)
 	{ 
@@ -644,17 +702,18 @@ void convPointwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	//Get kernel execution time
 	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
 
-	/* printf("Data for Layer %d\n", layer_count);
+	// printf("Data for Layer %d\n", layer_count);
 
-	for (k = 0; k < 32; k++){
-		for (j = 0; j < 5; j++){
-			for(i = 0; i < 5; i++){
-				printf("%u\t", opfm[(j*112+i) + k]);
-			}
-			printf("\n");
-		}
-    	printf("\n");
-	} */
+	// for (k = 0; k < op_fsize; k++){
+	// 	printf("Layer No.: %d\n",k);
+	// 	for (j = 0; j < 10; j++){
+	// 		for(i = 0; i < 10; i++){
+	// 			printf("%d\t", opfm[(j*opw+i) + (k*oph*opw)]);
+	// 		}
+	// 		printf("\n");
+	// 	}
+    // 	printf("\n");
+	// }
 
 	clReleaseMemObject(d_input);
 }
@@ -764,7 +823,7 @@ void fullyConectedLayer( unsigned char* ipfm, unsigned char* opfm, char* fileNam
 			// if (j == 0)
 			// 	printf("ip %d + fil %d = sum %d \n", ipfm[j],(filter[j] - Z2_28), sum );
         }
-		opfm[i] = (int)((M_28 * sum) + (h_bias[i] * SBIAS_28));
+		opfm[i] = (int)((M_28 * sum) + h_bias[i]);
 		sum = 0;
     }
     printf("Layer 29 Fully Connected Done\n");
@@ -801,9 +860,9 @@ void softmax (unsigned char* ipfm)
 }
 //This is the main function
 int main(int argc, char** argv) {
-
-    
+	
 	filter = (unsigned char*) malloc(FILTER_MAX*FILTER_MAX*FDIM*FDIM*FDIM*sizeof(unsigned char));
+	filter_proper = (unsigned char*) malloc(FILTER_MAX*FILTER_MAX*FDIM*FDIM*FDIM*sizeof(unsigned char));
 	unsigned char* op_fm_0 = (unsigned char*) malloc(IP_FM_1 * HEIGHT_1 * WIDTH_1 * sizeof(unsigned char)); //output feature map for layer 0
 	int i,j,k;
 
@@ -812,13 +871,11 @@ int main(int argc, char** argv) {
 	openClCreateKernel();
 	convStandard(op_fm_0); //Layer 0 - Standard Convolution
 	
-	/*//Layer 1 Depth-Wise Convolution
+	//Layer 1 Depth-Wise Convolution
 	
 	layer_count++;
 	unsigned char* op_fm_1 = (unsigned char*) malloc(IP_FM_2 * HEIGHT_2 * WIDTH_2 * sizeof(unsigned char)); //output feature map for layer 1
 	convDepthwise(op_fm_0, op_fm_1, "bias/BConv2d_1_depthwise", "weights/Conv2d_1_depthwise", HEIGHT_1, WIDTH_1, HEIGHT_2, WIDTH_2, IP_FM_1, IP_FM_2, 1, M_1, SBIAS_1, Z2_1);
-
-
 	
 	//Layer 2 Point-Wise Convolution
 
@@ -976,17 +1033,19 @@ int main(int argc, char** argv) {
 	layer_count++;
 	unsigned char* op_fm_27 = (unsigned char*) malloc(ELEMENTS * HEIGHT_28 * WIDTH_28 * sizeof(unsigned char));	//output feature map for layer 27
 	convAvgPool(op_fm_26, op_fm_27, HEIGHT_27, WIDTH_27, HEIGHT_28, WIDTH_28, IP_FM_27, ELEMENTS);
-// for (k = 0; k < ELEMENTS; k++){
-// 		for (j = 0; j < 1; j++){
-// 			for(i = 0; i < 1; i++){
-// 				printf("%d\t", op_fm_27[(j*WIDTH_28+i) + (k*HEIGHT_28*WIDTH_28)]);
-// 			}
-// 			//printf("\n");
-// 		}
-//     //printf("\n");
-// 	} 
+
+	for (k = 0; k < ELEMENTS; k++){
+			for (j = 0; j < 1; j++){
+				for(i = 0; i < 1; i++){
+					printf("%d\t", op_fm_27[(j*WIDTH_28+i) + (k*HEIGHT_28*WIDTH_28)]);
+				}
+				//printf("\n");
+			}
+		//printf("\n");
+		} 
+
 	//Layer 28 Fully COnnected
-	printf("\n");
+
 	layer_count++;
 	unsigned char* op_fm_28 = (unsigned char*) malloc(CLASSES_SOFTMAX * HEIGHT_29 * WIDTH_29 * sizeof(unsigned char));	//output feature map for layer 28
 	fullyConectedLayer(op_fm_27, op_fm_28, "bias/BConv2d_fullyconnected", "weights/Conv2d_fullyconnected", CLASSES, ELEMENTS);
@@ -1014,7 +1073,7 @@ int main(int argc, char** argv) {
 	free(op_fm_16);	free(op_fm_17);	free(op_fm_18);	free(op_fm_19);
 	free(op_fm_20);	free(op_fm_21);	free(op_fm_22);	free(op_fm_23);
 	free(op_fm_24);	free(op_fm_25);	free(op_fm_26);	free(op_fm_27);
-	free(op_fm_28);*/
+	free(op_fm_28);
 	clReleaseMemObject(d_output);
 	clReleaseMemObject(d_filter);
 	clReleaseProgram(program);
