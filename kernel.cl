@@ -27,10 +27,10 @@ __kernel void convolute(__global unsigned char* output,
 					sum +=  0 * filter_k[findex];
 				}
 				else {
-					// if ((tx ==  0 && ty == 2) && filter_count == 0) {
-					// 	printf("Image r: %d\t filter index %d \t%d\n",(inp_image_r[yindex * get_global_size(0) * stride + xindex] - Z1), findex, (filter_k[findex]-Z2));
-					// 	printf("Multiplication R %d\n",(inp_image_r[yindex * get_global_size(0) * stride + xindex] - Z1) * (filter_k[findex] - Z2));
-					// }
+					if ((tx ==  0 && ty == 0) && filter_count == 1) {
+						printf("Image r: %d\t filter index %d \t%d\n",(inp_image_r[yindex * get_global_size(0) * stride + xindex] - Z1), findex, (filter_k[findex]-Z2));
+						printf("Multiplication R %d\n",(inp_image_r[yindex * get_global_size(0) * stride + xindex] - Z1) * (filter_k[findex] - Z2));
+					}
  						sum +=  (inp_image_r[yindex * get_global_size(0) * stride + xindex] - Z1) * (filter_k[findex] - Z2);
 				}
 			}
@@ -43,10 +43,10 @@ __kernel void convolute(__global unsigned char* output,
 					sum +=  0 * filter_k[findex];
 				}
 				else {
-					// if ((tx == 0 && ty == 2) && filter_count == 0) {
-					// 	printf("Image g: %d\t filter index %d \t%d\n",(inp_image_g[yindex * get_global_size(0) * stride + xindex] - Z1), findex, (filter_k[findex]-Z2));
-					// 	printf("Multiplication G %d\n",(inp_image_g[yindex * get_global_size(0) * stride + xindex] - Z1) * (filter_k[findex] - Z2));
-					// }
+					if ((tx == 0 && ty == 0) && filter_count == 1) {
+						printf("Image g: %d\t filter index %d \t%d\n",(inp_image_g[yindex * get_global_size(0) * stride + xindex] - Z1), findex, (filter_k[findex]-Z2));
+						printf("Multiplication G %d\n",(inp_image_g[yindex * get_global_size(0) * stride + xindex] - Z1) * (filter_k[findex] - Z2));
+					}
  					sum +=  (inp_image_g[yindex * get_global_size(0) * stride + xindex] - Z1) * (filter_k[findex] - Z2);
 				}
 			}
@@ -59,34 +59,38 @@ __kernel void convolute(__global unsigned char* output,
 					sum +=  0 * filter_k[findex];
 				}
 				else {
-					// if ((tx == 0 && ty == 2) && filter_count == 0) {
-					// 	printf("Image b: %d\t filter index %d \t%d\n",(inp_image_b[yindex * get_global_size(0) * stride + xindex] - Z1), findex, (filter_k[findex]-Z2));
-					// 	printf("Multiplication B %d\n",(inp_image_b[yindex * get_global_size(0) * stride + xindex] - Z1) * (filter_k[findex] - Z2));
-					// }
+					if ((tx == 0 && ty == 0) && filter_count == 1) {
+						printf("Image b: %d\t filter index %d \t%d\n",(inp_image_b[yindex * get_global_size(0) * stride + xindex] - Z1), findex, (filter_k[findex]-Z2));
+						printf("Multiplication B %d\n",(inp_image_b[yindex * get_global_size(0) * stride + xindex] - Z1) * (filter_k[findex] - Z2));
+					}
  					sum +=  (inp_image_b[yindex * get_global_size(0) * stride + xindex] - Z1) * (filter_k[findex] - Z2);
 				}
 			}
 		}
-		
+		if (tx == 0 && ty == 0 && filter_count == 1) {
+			printf("B Sum: %d\n",(sum));
+		}
 		sum = sum + bias[filter_count];
-		// if (tx == 0 && ty == 2 && filter_count == 1) {
-		// 	printf("Bias added sum: %d\n",(sum));
-		// }
+		if (tx == 0 && ty == 0 && filter_count == 1) {
+			printf("Bias added sum: %d\n",(sum));
+		}
 		sum = sum * (float)Q / (float)2147483648;
-		// if (tx == 0 && ty == 2 && filter_count == 1) {
-		// 	printf("sum * Q/2^31: %d\n",(sum));
-		// }
+		if (tx == 0 && ty == 0 && filter_count == 1) {
+			printf("Q: %d\n",Q);
+			printf("Q/2^31: %f\n", (float)Q / (float)2147483648);
+			printf("sum * Q/2^31: %d\n",(sum));
+		}
 		sum = sum + ((right_shift < 1) ? 0 : (1 << (right_shift - 1)));
-		// if (tx == 0 && ty == 2 && filter_count == 1) {
-		// 	printf("Sum + rounding: %d\n",(sum));
-		// }
+		if (tx == 0 && ty == 0 && filter_count == 1) {
+			printf("Sum + rounding: %d\n",(sum));
+		}
 		sum = sum >> right_shift;
-		// if (tx == 0 && ty == 2 && filter_count == 1) {
-		// 	printf("Sum rightshifted: %d\n",(sum));
-		// }
-		// if (tx == 0 && ty == 2 && filter_count == 1) {
-		// 	printf("A Sum: %d\n",(sum));
-		// }
+		if (tx == 0 && ty == 0 && filter_count == 1) {
+			printf("Sum rightshifted: %d\n",(sum));
+		}
+		if (tx == 0 && ty == 0 && filter_count == 1) {
+			printf("A Sum: %d\n",(sum));
+		}
 		if (sum <= 0) {
 			sum = 0;		
 		} else if (sum >= 255) 
@@ -135,7 +139,7 @@ __kernel void depthwise(__global unsigned char* output,
 						sum +=  0 * filter_k[findex];
 					}
 					else {
-						if ((tx == 0 && ty == 1) && filter_count == 1) {
+						if ((tx == 0 && ty == 111) && filter_count == 1) {
 							printf("Img data: %d\tfilter index %d\t%d\n",inp_image[(yindex * get_global_size(0) * stride + xindex) + (rows * cols * filter_count)], findex, (filter_k[findex] - Z2));
 							printf("Multiplication: %d\n",inp_image[yindex * get_global_size(0) * stride + xindex] * filter_k[findex]);
 						}
@@ -146,7 +150,7 @@ __kernel void depthwise(__global unsigned char* output,
 						sum +=  0 * filter_k[findex];
 					}
 					else {
-						if ((tx == 0 && ty == 1) && filter_count == 1) {
+						if ((tx == 0 && ty == 111) && filter_count == 1) {
 							printf("Img data: %d\tfilter index %d\t%d\n",inp_image[(yindex * get_global_size(0) * stride + xindex) + (rows * cols * filter_count)], findex, (filter_k[findex] - Z2));
 							printf("Multiplication: %d\n",inp_image[(yindex * get_global_size(0) * stride + xindex) + (rows * cols * filter_count)] * (filter_k[findex] - Z2));
 						}
@@ -155,14 +159,32 @@ __kernel void depthwise(__global unsigned char* output,
 				}
 			}
 		}
-
+		if (tx == 0 && ty == 111 && filter_count == 1) {
+			printf("B Sum: %d\n",(sum));
+		}
 		sum = sum + bias[filter_count];
+		if (tx == 0 && ty == 111 && filter_count == 1) {
+			printf("Bias added sum: %d\n",(sum));
+		}
 		sum = sum * ((float)Q / (float)2147483648);
+		if (tx == 0 && ty == 111 && filter_count == 1) {
+			printf("Q: %d\n",Q);
+			printf("Q/2^31: %f\n", (float)Q / (float)2147483648);
+			printf("sum * Q/2^31: %d\n",(sum));
+		}
 		sum = sum + ((right_shift < 1) ? 0 : (1 << (right_shift - 1)));
+		if (tx == 0 && ty == 111 && filter_count == 1) {
+			printf("Sum + rounding: %d\n",(sum));
+		}
 		sum = sum >> right_shift;
-
+		if (tx == 0 && ty == 111 && filter_count == 1) {
+			printf("Sum rightshifted: %d\n",(sum));
+		}
+		if (tx == 0 && ty == 111 && filter_count == 1) {
+			printf("A Sum: %d\n",(sum));
+		}
 		
-		if (tx == 0 && ty == 1 && filter_count == 1) {
+		if (tx == 0 && ty == 111 && filter_count == 1) {
 			//printf("M: %f\tbias: %f\t\n",M,Sbias);
 			//printf("Summ: %d\t\n",(int)((M * sum) + (bias[filter_count] * Sbias)));
 			printf("Depth Sum: %d\t\n",sum);

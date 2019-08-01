@@ -586,18 +586,18 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 
 	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
 
-	// printf("Data for Layer %d\n", layer_count);
+	printf("Data for Layer %d\n", layer_count);
 
-	// for (k = 0; k < op_fsize; k++){
-	// 	printf("Layer No: %d\n", k);
-	// 	for (j = 0; j < 15; j++){
-	// 		for(i = 0; i < 15; i++){
-	// 			printf("%d\t", opfm[(j*opw+i) + (k*oph*opw)]);
-	// 		}
-	// 		printf("\n");
-	// 	}
-    // printf("\n");
-	// }
+	for (k = 0; k < op_fsize; k++){
+		printf("Layer No: %d\n", k);
+		for (j = 110; j < 112; j++){
+			for(i = 0; i < 112; i++){
+				printf("%d\t", opfm[(j*opw+i) + (k*oph*opw)]);
+			}
+			printf("\n");
+		}
+    printf("\n");
+	}
 	
 	clReleaseMemObject(d_input);
 
@@ -871,7 +871,7 @@ int main(int argc, char** argv) {
 	openClCreateKernel();
 	convStandard(op_fm_0); //Layer 0 - Standard Convolution
 	
-	//Layer 1 Depth-Wise Convolution
+	/*//Layer 1 Depth-Wise Convolution
 	
 	layer_count++;
 	unsigned char* op_fm_1 = (unsigned char*) malloc(IP_FM_2 * HEIGHT_2 * WIDTH_2 * sizeof(unsigned char)); //output feature map for layer 1
@@ -1073,7 +1073,7 @@ int main(int argc, char** argv) {
 	free(op_fm_16);	free(op_fm_17);	free(op_fm_18);	free(op_fm_19);
 	free(op_fm_20);	free(op_fm_21);	free(op_fm_22);	free(op_fm_23);
 	free(op_fm_24);	free(op_fm_25);	free(op_fm_26);	free(op_fm_27);
-	free(op_fm_28);
+	free(op_fm_28);*/
 	clReleaseMemObject(d_output);
 	clReleaseMemObject(d_filter);
 	clReleaseProgram(program);
