@@ -388,7 +388,7 @@ void convStandard (unsigned char* opfm) {
     getBias(h_bias,"bias/BConv2d_0",IP_FM_1);
 
 	//Read pixel values from input image
-	decode_image(image,"testData/tiger.ppm"); 
+	decode_image(image,"testData/banana.ppm"); 
 
 	//separate R,G and B pixels
 	seperateChannels(image, image_r, image_g, image_b);
@@ -866,9 +866,11 @@ void convAvgPool(unsigned char* ipfm, unsigned char* opfm,
 	clReleaseMemObject(d_input);
 }
 
-void fullyConectedLayer( unsigned char* ipfm, unsigned char* opfm, char* fileName_bias , char* fileName_filter , int classes , int elements)
+void fullyConectedLayer( unsigned char* ipfm, unsigned char* opfm, char* fileName_bias , char* fileName_filter , int classes , int elements, float M)
 {   
     int i,j,jf=0,itr;
+	int Q, right_shift;	//parameters to compute Quantized multiplier
+
 	int sum = 0;
 	/*Bias*/
 	int* h_bias;
@@ -881,6 +883,9 @@ void fullyConectedLayer( unsigned char* ipfm, unsigned char* opfm, char* fileNam
 	//Get filter values
 	getWeights(filter, fileName_filter, (classes * elements));
 
+	//Compute Quantized Multiplier from Real Multiplier
+	QuantizeMultiplierSmallerThanOne(M, &Q, &right_shift);	
+
     for(i = 0; i < CLASSES; i++)
     {
         for(j = 0; j < ELEMENTS; j++)
@@ -889,7 +894,16 @@ void fullyConectedLayer( unsigned char* ipfm, unsigned char* opfm, char* fileNam
 			// if (j == 0)
 			// 	printf("ip %d + fil %d = sum %d \n", ipfm[j],(filter[j] - Z2_28), sum );
         }
-		opfm[i] = (int)((M_28 * sum) + h_bias[i]);
+		sum = sum + h_bias[i];
+		sum = sum * ((float)Q / (float)2147483648);
+		sum = sum + ((right_shift < 1) ? 0 : (1 << (right_shift - 1)));
+		sum = sum >> right_shift;
+		if (sum <= 0) {
+			sum = 0;		
+		} else if (sum >= 255) 
+			sum = 255;
+
+		opfm[i] = (unsigned char)sum;
 		sum = 0;
     }
     printf("Layer 29 Fully Connected Done\n");
@@ -1095,13 +1109,6 @@ int main(int argc, char** argv) {
 	unsigned char* op_fm_26 = (unsigned char*) malloc(IP_FM_27 * HEIGHT_27 * WIDTH_27 * sizeof(unsigned char));	//output feature map for layer 26
 	convPointwise(op_fm_25, op_fm_26, "bias/BConv2d_13_pointwise", "weights/Conv2d_13_pointwise", HEIGHT_26, WIDTH_26, HEIGHT_27, WIDTH_27, IP_FM_26, IP_FM_27, M_26, SBIAS_26, Z2_26);
 
-	unsigned char* output_proper = (unsigned char*) malloc(IP_FM_27 * HEIGHT_27 * WIDTH_27 * sizeof(unsigned char)); 
-	arrangOutput(op_fm_26, output_proper, IP_FM_27, HEIGHT_27 * WIDTH_27);
-	FILE *write_ptr;
-
-	write_ptr = fopen("point26.npy","wb");  // w for write, b for binary
-	fwrite(output_proper, IP_FM_27 * HEIGHT_27 * WIDTH_27, 1, write_ptr);
-
 	// for (k = 0; k < IP_FM_27; k++){
 	// 	printf("Layer No.: %d\n",k);
 	// 	for (j = 0; j < HEIGHT_27; j++){
@@ -1118,22 +1125,22 @@ int main(int argc, char** argv) {
 	layer_count++;
 	unsigned char* op_fm_27 = (unsigned char*) malloc(ELEMENTS * HEIGHT_28 * WIDTH_28 * sizeof(unsigned char));	//output feature map for layer 27
 	convAvgPool(op_fm_26, op_fm_27, HEIGHT_27, WIDTH_27, HEIGHT_28, WIDTH_28, IP_FM_27, ELEMENTS);
-
-	for (k = 0; k < ELEMENTS; k++){
-			for (j = 0; j < 1; j++){
-				for(i = 0; i < 1; i++){
-					printf("%d\t", op_fm_27[(j*WIDTH_28+i) + (k*HEIGHT_28*WIDTH_28)]);
-				}
-				//printf("\n");
-			}
-		//printf("\n");
-		} 
+	// printf("Avg pol data\n");
+	// for (k = 0; k < ELEMENTS; k++){
+	// 		for (j = 0; j < 1; j++){
+	// 			for(i = 0; i < 1; i++){
+	// 				printf("%d\t", op_fm_27[(j*WIDTH_28+i) + (k*HEIGHT_28*WIDTH_28)]);
+	// 			}
+	// 			//printf("\n");
+	// 		}
+	// 	//printf("\n");
+	// 	} 
 
 	//Layer 28 Fully COnnected
 
 	layer_count++;
 	unsigned char* op_fm_28 = (unsigned char*) malloc(CLASSES_SOFTMAX * HEIGHT_29 * WIDTH_29 * sizeof(unsigned char));	//output feature map for layer 28
-	fullyConectedLayer(op_fm_27, op_fm_28, "bias/BConv2d_fullyconnected", "weights/Conv2d_fullyconnected", CLASSES, ELEMENTS);
+	fullyConectedLayer(op_fm_27, op_fm_28, "bias/BConv2d_fullyconnected", "weights/Conv2d_fullyconnected", CLASSES, ELEMENTS, M_28);
 	// for (k = 0; k < CLASSES; k++){
 	// 	for (j = 0; j < 1; j++){
 	// 		for(i = 0; i < 1; i++){
