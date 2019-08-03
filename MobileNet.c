@@ -399,14 +399,6 @@ void convStandard (unsigned char* opfm) {
 	//Get filter values
     getWeights(filter,"weights/Conv2d_0",(IP_FM_1*FDIM*FDIM*FDIM));
 
-	// for(i = 162; i < 165; i++)	{
-	// 	for (j = 50; j < 53; j++)	{
-	// 		printf("%d\t", image_r[i*224+j]);
-	// 	}
-	// 	printf("\n");
-	// }
-	// printf("\n");
-
 	arrangeWeights(filter, filter_proper, IP_FM_1*FDIM*FDIM*FDIM);
 
 	//Create buffer for device
