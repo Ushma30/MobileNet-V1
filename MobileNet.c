@@ -292,6 +292,32 @@ void arrangWeightsDepthwise(unsigned char* ip, unsigned char* op, int fsize)
     }
 }
 
+void arrangeWeights(unsigned char* ip, unsigned char* op, int filter_size) {
+		
+	int i,j,k,idx=0;
+	for (i = 0; i < filter_size; i++) {
+		for (j = 0; j < 3; j++) {
+			for (k = 0; k < 9; k++,idx++) {
+				op[idx] = ip[(k*3)+j+(i*27)];
+				//printf("%d\t", op[idx]);
+			}
+			//printf("\n");
+		}
+	}
+}
+
+void arrangOutput(unsigned char* ip, unsigned char* op, int fsize)
+{
+    int nof, channel,ele_per_filter,i=0;
+    for (nof=0; nof<112*112; nof++)
+    {
+        for(ele_per_filter=0;ele_per_filter<32;ele_per_filter++,i++)
+        {
+            op[i]=ip[0+(ele_per_filter*(112*112))+nof];   
+        }
+    }
+}
+
 
 void QuantizeMultiplierSmallerThanOne(float real_multiplier,
                                       int* quantized_multiplier,
@@ -356,7 +382,7 @@ void convStandard (unsigned char* opfm) {
 	/*Bias*/
 	int* h_bias;
 	
-    h_bias = (int*)malloc(sizeof(int) * IP_FM_1);
+	h_bias = (int*)malloc(sizeof(int) * IP_FM_1);
 
 	//Get bias values
     getBias(h_bias,"bias/BConv2d_0",IP_FM_1);
@@ -373,12 +399,22 @@ void convStandard (unsigned char* opfm) {
 	//Get filter values
     getWeights(filter,"weights/Conv2d_0",(IP_FM_1*FDIM*FDIM*FDIM));
 
+	// for(i = 162; i < 165; i++)	{
+	// 	for (j = 50; j < 53; j++)	{
+	// 		printf("%d\t", image_r[i*224+j]);
+	// 	}
+	// 	printf("\n");
+	// }
+	// printf("\n");
+
+	arrangeWeights(filter, filter_proper, IP_FM_1*FDIM*FDIM*FDIM);
+
 	//Create buffer for device
 	d_image_r = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_r, &err);
 	d_image_g = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_g, &err);
 	d_image_b = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_b, &err);
 	d_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, HEIGHT_1*WIDTH_1*IP_FM_1*sizeof(unsigned char), NULL, &err);
-	d_filter = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, IP_FM_1*FDIM*FDIM*FDIM*sizeof(unsigned char), filter, &err);
+	d_filter = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, IP_FM_1*FDIM*FDIM*FDIM*sizeof(unsigned char), filter_proper, &err);
 	d_bias = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, IP_FM_1*sizeof(int), h_bias, &err);
 
 	if (!d_image_r || !d_image_g || !d_image_b || !d_filter || !d_output || !d_bias)
@@ -390,7 +426,7 @@ void convStandard (unsigned char* opfm) {
 	err = clEnqueueWriteBuffer(commands, d_image_r, CL_TRUE, 0, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_r, 0, NULL, NULL);
 	err |= clEnqueueWriteBuffer(commands, d_image_g, CL_TRUE, 0, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_g, 0, NULL, NULL);   
 	err |= clEnqueueWriteBuffer(commands, d_image_b, CL_TRUE, 0, HEIGHT_0*WIDTH_0*sizeof(unsigned char), image_b, 0, NULL, NULL);   
-	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, IP_FM_1*FDIM*FDIM*FDIM*sizeof(unsigned char), filter, 0, NULL, NULL);   
+	err |= clEnqueueWriteBuffer(commands, d_filter, CL_TRUE, 0, IP_FM_1*FDIM*FDIM*FDIM*sizeof(unsigned char), filter_proper, 0, NULL, NULL);   
 	err |= clEnqueueWriteBuffer(commands, d_bias, CL_TRUE, 0, IP_FM_1*sizeof(int), h_bias, 0, NULL, NULL);   
 
 	if (err != CL_SUCCESS)
@@ -458,6 +494,12 @@ void convStandard (unsigned char* opfm) {
 		printf("Error: Failed to read output array! %d\n", err);
 		exit(1);
 	}
+	unsigned char* output_proper = (unsigned char*) malloc(HEIGHT_1 * WIDTH_1 * IP_FM_1 * sizeof(unsigned char)); 
+	arrangOutput(opfm, output_proper, 0);
+	FILE *write_ptr;
+
+	write_ptr = fopen("test.npy","wb");  // w for write, b for binary
+	fwrite(output_proper,HEIGHT_1*WIDTH_1*IP_FM_1,1,write_ptr);
      
 	//Get kernel execution time
 	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
@@ -588,16 +630,23 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 
 	printf("Data for Layer %d\n", layer_count);
 
-	for (k = 0; k < op_fsize; k++){
-		printf("Layer No: %d\n", k);
-		for (j = 110; j < 112; j++){
-			for(i = 0; i < 112; i++){
-				printf("%d\t", opfm[(j*opw+i) + (k*oph*opw)]);
-			}
-			printf("\n");
-		}
-    printf("\n");
-	}
+	unsigned char* output_proper = (unsigned char*) malloc(oph * opw * op_fsize * sizeof(unsigned char)); 
+	arrangOutput(opfm, output_proper, 0);
+	FILE *write_ptr;
+
+	write_ptr = fopen("depth1.npy","wb");  // w for write, b for binary
+	fwrite(output_proper,oph * opw * op_fsize,1,write_ptr);
+     
+	// for (k = 0; k < op_fsize; k++){
+	// 	printf("Layer No: %d\n", k);
+	// 	for (j = 110; j < 112; j++){
+	// 		for(i = 0; i < 112; i++){
+	// 			printf("%d\t", opfm[(j*opw+i) + (k*oph*opw)]);
+	// 		}
+	// 		printf("\n");
+	// 	}
+    // printf("\n");
+	// }
 	
 	clReleaseMemObject(d_input);
 
