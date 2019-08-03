@@ -494,12 +494,12 @@ void convStandard (unsigned char* opfm) {
 		printf("Error: Failed to read output array! %d\n", err);
 		exit(1);
 	}
-	unsigned char* output_proper = (unsigned char*) malloc(HEIGHT_1 * WIDTH_1 * IP_FM_1 * sizeof(unsigned char)); 
-	arrangOutput(opfm, output_proper, 0);
-	FILE *write_ptr;
+	// unsigned char* output_proper = (unsigned char*) malloc(HEIGHT_1 * WIDTH_1 * IP_FM_1 * sizeof(unsigned char)); 
+	// arrangOutput(opfm, output_proper, 0);
+	// FILE *write_ptr;
 
-	write_ptr = fopen("test.npy","wb");  // w for write, b for binary
-	fwrite(output_proper,HEIGHT_1*WIDTH_1*IP_FM_1,1,write_ptr);
+	// write_ptr = fopen("test.npy","wb");  // w for write, b for binary
+	// fwrite(output_proper,HEIGHT_1*WIDTH_1*IP_FM_1,1,write_ptr);
      
 	//Get kernel execution time
 	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
@@ -553,6 +553,11 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	QuantizeMultiplierSmallerThanOne(M, &Q, &right_shift);
 	
 	arrangWeightsDepthwise(filter, filter_proper, op_fsize);
+	
+	// for(i = 0; i < op_fsize*9; i++)
+	// 	printf("%d\t", filter_proper[i]);
+
+	// printf("\n");
 
 	//Create buffer for device
 	d_input = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, iph*ipw*ip_fsize*sizeof(unsigned char), ipfm, &err);
@@ -628,14 +633,14 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 
 	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
 
-	printf("Data for Layer %d\n", layer_count);
+	//printf("Data for Layer %d\n", layer_count);
 
-	unsigned char* output_proper = (unsigned char*) malloc(oph * opw * op_fsize * sizeof(unsigned char)); 
-	arrangOutput(opfm, output_proper, 0);
-	FILE *write_ptr;
+	// unsigned char* output_proper = (unsigned char*) malloc(oph * opw * op_fsize * sizeof(unsigned char)); 
+	// arrangOutput(opfm, output_proper, 0);
+	// FILE *write_ptr;
 
-	write_ptr = fopen("depth1.npy","wb");  // w for write, b for binary
-	fwrite(output_proper,oph * opw * op_fsize,1,write_ptr);
+	// write_ptr = fopen("depth1.npy","wb");  // w for write, b for binary
+	// fwrite(output_proper,oph * opw * op_fsize,1,write_ptr);
      
 	// for (k = 0; k < op_fsize; k++){
 	// 	printf("Layer No: %d\n", k);
@@ -676,6 +681,11 @@ void convPointwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 
 	//Compute Quantized Multiplier from Real Multiplier
 	QuantizeMultiplierSmallerThanOne(M, &Q, &right_shift);
+
+	// for(i = 0; i < ip_fsize; i++)
+	// 	printf("%d\t", filter[i]);
+
+	// printf("\n");
 	
 	//Create buffer for device
 	d_input = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, iph*ipw*ip_fsize*sizeof(unsigned char), ipfm, &err);
@@ -748,6 +758,13 @@ void convPointwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 		exit(1);
 	}
 
+	unsigned char* output_proper = (unsigned char*) malloc(oph * opw * op_fsize * sizeof(unsigned char)); 
+	arrangOutput(opfm, output_proper, 0);
+	FILE *write_ptr;
+
+	write_ptr = fopen("point.npy","wb");  // w for write, b for binary
+	fwrite(output_proper,oph * opw * op_fsize,1,write_ptr);
+
 	//Get kernel execution time
 	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
 
@@ -755,8 +772,8 @@ void convPointwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 
 	// for (k = 0; k < op_fsize; k++){
 	// 	printf("Layer No.: %d\n",k);
-	// 	for (j = 0; j < 10; j++){
-	// 		for(i = 0; i < 10; i++){
+	// 	for (j = 100; j < 112; j++){
+	// 		for(i = 100; i < 112; i++){
 	// 			printf("%d\t", opfm[(j*opw+i) + (k*oph*opw)]);
 	// 		}
 	// 		printf("\n");
@@ -920,7 +937,7 @@ int main(int argc, char** argv) {
 	openClCreateKernel();
 	convStandard(op_fm_0); //Layer 0 - Standard Convolution
 	
-	/*//Layer 1 Depth-Wise Convolution
+	//Layer 1 Depth-Wise Convolution
 	
 	layer_count++;
 	unsigned char* op_fm_1 = (unsigned char*) malloc(IP_FM_2 * HEIGHT_2 * WIDTH_2 * sizeof(unsigned char)); //output feature map for layer 1
@@ -933,7 +950,7 @@ int main(int argc, char** argv) {
 	convPointwise(op_fm_1, op_fm_2, "bias/BConv2d_1_pointwise", "weights/Conv2d_1_pointwise", HEIGHT_2, WIDTH_2, HEIGHT_3, WIDTH_3, IP_FM_2, IP_FM_3, M_2, SBIAS_2, Z2_2);
 
 
-	//Layer 3 Depth-Wise Convolution
+	/*//Layer 3 Depth-Wise Convolution
 
 	layer_count++;
 	unsigned char* op_fm_3 = (unsigned char*) malloc(IP_FM_4 * HEIGHT_4 * WIDTH_4 * sizeof(unsigned char)); //output feature map for layer 3
