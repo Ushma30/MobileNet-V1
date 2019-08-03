@@ -306,14 +306,14 @@ void arrangeWeights(unsigned char* ip, unsigned char* op, int filter_size) {
 	}
 }
 
-void arrangOutput(unsigned char* ip, unsigned char* op, int fsize)
+void arrangOutput(unsigned char* ip, unsigned char* op, int fsize, int op_size)
 {
     int nof, channel,ele_per_filter,i=0;
-    for (nof=0; nof<112*112; nof++)
+    for (nof=0; nof<op_size; nof++)
     {
-        for(ele_per_filter=0;ele_per_filter<32;ele_per_filter++,i++)
+        for(ele_per_filter=0;ele_per_filter<fsize;ele_per_filter++,i++)
         {
-            op[i]=ip[0+(ele_per_filter*(112*112))+nof];   
+            op[i]=ip[0+(ele_per_filter*(op_size))+nof];   
         }
     }
 }
@@ -636,7 +636,7 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	//printf("Data for Layer %d\n", layer_count);
 
 	// unsigned char* output_proper = (unsigned char*) malloc(oph * opw * op_fsize * sizeof(unsigned char)); 
-	// arrangOutput(opfm, output_proper, 0);
+	//arrangOutput(opfm, output_proper, op_fsize*FDIM*FDIM, op_fsize*oph*opw);
 	// FILE *write_ptr;
 
 	// write_ptr = fopen("depth1.npy","wb");  // w for write, b for binary
@@ -758,12 +758,12 @@ void convPointwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 		exit(1);
 	}
 
-	unsigned char* output_proper = (unsigned char*) malloc(oph * opw * op_fsize * sizeof(unsigned char)); 
-	arrangOutput(opfm, output_proper, 0);
-	FILE *write_ptr;
+	// unsigned char* output_proper = (unsigned char*) malloc(oph * opw * op_fsize * sizeof(unsigned char)); 
+	// arrangOutput(opfm, output_proper, ip_fsize*op_fsize*FDIM_P*FDIM_P, op_fsize*oph*opw);
+	// FILE *write_ptr;
 
-	write_ptr = fopen("point.npy","wb");  // w for write, b for binary
-	fwrite(output_proper,oph * opw * op_fsize,1,write_ptr);
+	// write_ptr = fopen("point.npy","wb");  // w for write, b for binary
+	// fwrite(output_proper,oph * opw * op_fsize,1,write_ptr);
 
 	//Get kernel execution time
 	printf("Kernel Execution time for Layer %d: %f\n", layer_count, kernelExecTimeNs/1000000000);
@@ -950,7 +950,7 @@ int main(int argc, char** argv) {
 	convPointwise(op_fm_1, op_fm_2, "bias/BConv2d_1_pointwise", "weights/Conv2d_1_pointwise", HEIGHT_2, WIDTH_2, HEIGHT_3, WIDTH_3, IP_FM_2, IP_FM_3, M_2, SBIAS_2, Z2_2);
 
 
-	/*//Layer 3 Depth-Wise Convolution
+	//Layer 3 Depth-Wise Convolution
 
 	layer_count++;
 	unsigned char* op_fm_3 = (unsigned char*) malloc(IP_FM_4 * HEIGHT_4 * WIDTH_4 * sizeof(unsigned char)); //output feature map for layer 3
@@ -1086,13 +1086,32 @@ int main(int argc, char** argv) {
 
 	layer_count++;
 	unsigned char* op_fm_25 = (unsigned char*) malloc(IP_FM_26 * HEIGHT_26 * WIDTH_26 * sizeof(unsigned char)); //output feature map for layer 25
-	convDepthwise(op_fm_24, op_fm_25, "bias/BConv2d_13_depthwise", "weights/Conv2d_13_depthwise", HEIGHT_25, WIDTH_25, HEIGHT_26, WIDTH_26, IP_FM_25, IP_FM_26, 2, M_25, SBIAS_25, Z2_25);
+	convDepthwise(op_fm_24, op_fm_25, "bias/BConv2d_13_depthwise", "weights/Conv2d_13_depthwise", HEIGHT_25, WIDTH_25, HEIGHT_26, WIDTH_26, IP_FM_25, IP_FM_26, 1, M_25, SBIAS_25, Z2_25);
+
 
 	//Layer 26 Point-Wise Convolution
 
 	layer_count++;
 	unsigned char* op_fm_26 = (unsigned char*) malloc(IP_FM_27 * HEIGHT_27 * WIDTH_27 * sizeof(unsigned char));	//output feature map for layer 26
 	convPointwise(op_fm_25, op_fm_26, "bias/BConv2d_13_pointwise", "weights/Conv2d_13_pointwise", HEIGHT_26, WIDTH_26, HEIGHT_27, WIDTH_27, IP_FM_26, IP_FM_27, M_26, SBIAS_26, Z2_26);
+
+	unsigned char* output_proper = (unsigned char*) malloc(IP_FM_27 * HEIGHT_27 * WIDTH_27 * sizeof(unsigned char)); 
+	arrangOutput(op_fm_26, output_proper, IP_FM_27, HEIGHT_27 * WIDTH_27);
+	FILE *write_ptr;
+
+	write_ptr = fopen("point26.npy","wb");  // w for write, b for binary
+	fwrite(output_proper, IP_FM_27 * HEIGHT_27 * WIDTH_27, 1, write_ptr);
+
+	// for (k = 0; k < IP_FM_27; k++){
+	// 	printf("Layer No.: %d\n",k);
+	// 	for (j = 0; j < HEIGHT_27; j++){
+	// 		for(i = 0; i < WIDTH_27; i++){
+	// 			printf("%d\t", op_fm_26[(j*WIDTH_27+i) + (k*HEIGHT_27*WIDTH_27)]);
+	// 		}
+	// 		printf("\n");
+	// 	}
+    // 	printf("\n");
+	// }
 	
 	//Layer 27 Average Pool
 
@@ -1139,7 +1158,7 @@ int main(int argc, char** argv) {
 	free(op_fm_16);	free(op_fm_17);	free(op_fm_18);	free(op_fm_19);
 	free(op_fm_20);	free(op_fm_21);	free(op_fm_22);	free(op_fm_23);
 	free(op_fm_24);	free(op_fm_25);	free(op_fm_26);	free(op_fm_27);
-	free(op_fm_28);*/
+	free(op_fm_28);
 	clReleaseMemObject(d_output);
 	clReleaseMemObject(d_filter);
 	clReleaseProgram(program);
