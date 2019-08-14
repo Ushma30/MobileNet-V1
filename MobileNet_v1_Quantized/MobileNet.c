@@ -24,6 +24,7 @@
 #include <CL/cl.h>
 #include <stdbool.h>
 #include "layerdef.h"
+#include <time.h>
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 
 unsigned char image[HEIGHT_0 * WIDTH_0 * FDIM]; //image with 3 input channels
@@ -49,7 +50,7 @@ cl_ulong end; //time stop
 cl_float kernelExecTimeNs;
 cl_uint dev_cnt = 0;
 cl_platform_id platform_ids[100];
-
+clock_t t; 
 
 int decode_image(unsigned char frame[HEIGHT_0 * WIDTH_0 * FDIM], char filename[]);
 void getBias(int* f, char filename[], int size);
@@ -526,7 +527,7 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	cl_mem d_input;	//Input Data
 	cl_mem d_bias;	//Bias Data
 
-	kernelExecTimeNs = 0;
+	//kernelExecTimeNs = 0;
 	int i,j,k;
 	int Q, right_shift;	//parameters to compute Quantized multiplier
 
@@ -656,7 +657,7 @@ void convPointwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	cl_mem d_input;	//Input Data
 	cl_mem d_bias;	//Bias Data
 
-	kernelExecTimeNs = 0;
+	//kernelExecTimeNs = 0;
 	int i,j,k;
 	int Q, right_shift;	//parameters to compute Quantized multiplier
 
@@ -782,7 +783,7 @@ void convAvgPool(unsigned char* ipfm, unsigned char* opfm,
 
 	cl_mem d_input;	//Input Data	
 
-	kernelExecTimeNs = 0;
+	//kernelExecTimeNs = 0;
 	int i,j,k;
 
 	//Create buffer for device
@@ -937,7 +938,7 @@ int main(int argc, char** argv) {
 	filter_proper = (unsigned char*) malloc(FILTER_MAX*FILTER_MAX*FDIM*FDIM*FDIM*sizeof(unsigned char));
 	unsigned char* op_fm_0 = (unsigned char*) malloc(IP_FM_1 * HEIGHT_1 * WIDTH_1 * sizeof(unsigned char)); //output feature map for layer 0
 	int i,j,k;
-
+	t = clock();
 	openClDeviceConfig();
 	openClCreateContext();
 	openClCreateKernel();
@@ -1147,7 +1148,9 @@ int main(int argc, char** argv) {
 
 	layer_count++;
 	softmax(op_fm_28);
-
+	t = clock() - t; 
+	double time_taken = ((double)t)/CLOCKS_PER_SEC; // in seconds 
+	printf("MobileNet took %f seconds to execute \n", time_taken);
 	//Shutdown and cleanup
 	free(filter);
 	free(op_fm_0);	free(op_fm_1);	free(op_fm_2);	free(op_fm_3);
