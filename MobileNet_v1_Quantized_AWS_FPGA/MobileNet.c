@@ -469,8 +469,8 @@ void convStandard (unsigned char* opfm) {
 	}
 	
 	size_t localWorkSize[2], globalWorkSize[2];
-	localWorkSize[0] = 8;
-	localWorkSize[1] = 8;
+	localWorkSize[0] = 16;
+	localWorkSize[1] = 16;
 	globalWorkSize[0] = 112;
 	globalWorkSize[1] = 112;
 	err = clEnqueueNDRangeKernel(commands, standard_conv, 2, NULL,globalWorkSize, localWorkSize, 0, NULL, &myevent);   
@@ -605,8 +605,8 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	}
 
 	size_t localWorkSize[2], globalWorkSize[2];
-	localWorkSize[0] = 1;
-	localWorkSize[1] = 1;
+	localWorkSize[0] = 7;
+	localWorkSize[1] = 7;
 	globalWorkSize[0] = opw;
 	globalWorkSize[1] = oph;
 	err = clEnqueueNDRangeKernel(commands, depthwise_conv, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myevent);   
@@ -732,8 +732,8 @@ void convPointwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	}
 
 	size_t localWorkSize[2], globalWorkSize[2];
-	localWorkSize[0] = 1;
-	localWorkSize[1] = 1;
+	localWorkSize[0] = 7;
+	localWorkSize[1] = 7;
 	globalWorkSize[0] = opw;
 	globalWorkSize[1] = oph;
 	err = clEnqueueNDRangeKernel(commands, pointwise_conv, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myevent);   
