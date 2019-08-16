@@ -250,14 +250,17 @@ void readSquezeNetKernel(unsigned char *m, int read_size)
  *        3. int size
  * @return None
  */
-void getWeights(unsigned char* f, char filename[], int size)
+void getWeights(unsigned char* aryWeight, char filename[], int size)
 {
-    FILE *latfile;
-    latfile=fopen(filename,"r");
-    /* 80 is the offset of numpy array file*/
-    fseek(latfile, 0, SEEK_SET);
-    fread(f,sizeof(unsigned char),size,latfile);
-    fclose(latfile);
+    FILE *npyfile;
+	uint16_t headerOffset;  
+	npyfile=fopen(filename,"r");
+	fseek(npyfile, 8, SEEK_SET);
+	fread(&headerOffset,sizeof(uint16_t),1,npyfile);
+	//printf("shift headerOffset - %d \n", headerOffset);    
+	fseek(npyfile, ( headerOffset + NPY_COMMON_HEADER_OFFSET ), SEEK_SET);
+	fread(aryWeight,sizeof(unsigned char),size,npyfile);
+	fclose(npyfile);
 }
 /**
  * @brief  Get the bias from the numpy array file
@@ -268,14 +271,18 @@ void getWeights(unsigned char* f, char filename[], int size)
  *        3. int size
  * @return None
  */
+
 void getBias(int* f, char filename[], int size)
 {
-    FILE *latfile;
-    latfile=fopen(filename,"r");
-    /* 80 is the offset of numpy array file*/
-    fseek(latfile, 80, SEEK_SET);
-    fread(f,sizeof(int),size,latfile);
-    fclose(latfile);
+	FILE *npyfile;
+	uint16_t headerOffset;  
+	npyfile=fopen(filename,"r");
+	fseek(npyfile, 8, SEEK_SET);
+	fread(&headerOffset,sizeof(uint16_t),1,npyfile);
+	//printf("shift headerOffset - %d \n", headerOffset);    
+	fseek(npyfile, ( headerOffset + NPY_COMMON_HEADER_OFFSET ), SEEK_SET);
+	fread(f,sizeof(int),size,npyfile);
+	fclose(npyfile);
 }
 
 /**

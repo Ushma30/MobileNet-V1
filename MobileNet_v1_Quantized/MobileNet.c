@@ -26,6 +26,7 @@
 #include "layerdef.h"
 #include <time.h>
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
+#define NPY_COMMON_HEADER_OFFSET		10 //offset to the Size of Header in npy file (npy - numpy array file)
 
 unsigned char image[HEIGHT_0 * WIDTH_0 * FDIM]; //image with 3 input channels
 unsigned char* filter;
@@ -54,6 +55,7 @@ clock_t t;
 
 int decode_image(unsigned char frame[HEIGHT_0 * WIDTH_0 * FDIM], char filename[]);
 void getBias(int* f, char filename[], int size);
+void getWeights(unsigned char* aryWeight, char filename[], int size);
 
 long LoadOpenCLKernel(char const* path, char **buf)
 {
@@ -218,23 +220,6 @@ void seperateChannels(unsigned char* imd,unsigned char* im1,unsigned char* im2,u
     }
 }
 
-void readSquezeNetKernel(unsigned char *m, int read_size) 
-{
-
-	FILE *fp;	
-	char buff[255];
-	double n;
-	fp = fopen("weight.txt", "r");
-	//int sizeInt = K * K * K * 32 *sizeof(int);
-	int i=0;
-	for(i = 1; i < read_size + 1; i++)
-	{	
-		fscanf(fp, "%s", buff);
-		n = atof(buff);
-		m[i-1] = n;
-	}
-	fclose(fp);
-}
 /**
  * @brief  Get the weights from the numpy array file
  * @author  Kausutbh
@@ -244,14 +229,17 @@ void readSquezeNetKernel(unsigned char *m, int read_size)
  *        3. int size
  * @return None
  */
-void getWeights(unsigned char* f, char filename[], int size)
+void getWeights(unsigned char* aryWeight, char filename[], int size)
 {
-    FILE *latfile;
-    latfile=fopen(filename,"r");
-    /* 80 is the offset of numpy array file*/
-    fseek(latfile, 0, SEEK_SET);
-    fread(f,sizeof(unsigned char),size,latfile);
-    fclose(latfile);
+	FILE *npyfile;
+	uint16_t headerOffset;  
+	npyfile=fopen(filename,"r");
+	fseek(npyfile, 8, SEEK_SET);
+	fread(&headerOffset,sizeof(uint16_t),1,npyfile);
+	//printf("shift headerOffset - %d \n", headerOffset);    
+	fseek(npyfile, ( headerOffset + NPY_COMMON_HEADER_OFFSET ), SEEK_SET);
+	fread(aryWeight,sizeof(unsigned char),size,npyfile);
+	fclose(npyfile);
 }
 /**
  * @brief  Get the bias from the numpy array file
@@ -264,12 +252,15 @@ void getWeights(unsigned char* f, char filename[], int size)
  */
 void getBias(int* f, char filename[], int size)
 {
-    FILE *latfile;
-    latfile=fopen(filename,"r");
-    /* 80 is the offset of numpy array file*/
-    fseek(latfile, 80, SEEK_SET);
-    fread(f,sizeof(int),size,latfile);
-    fclose(latfile);
+	FILE *npyfile;
+	uint16_t headerOffset;  
+	npyfile=fopen(filename,"r");
+	fseek(npyfile, 8, SEEK_SET);
+	fread(&headerOffset,sizeof(uint16_t),1,npyfile);
+	//printf("shift headerOffset - %d \n", headerOffset);    
+	fseek(npyfile, ( headerOffset + NPY_COMMON_HEADER_OFFSET ), SEEK_SET);
+	fread(f,sizeof(int),size,npyfile);
+	fclose(npyfile);
 }
 
 /**
@@ -388,8 +379,12 @@ void convStandard (unsigned char* opfm) {
 	//Get bias values
     getBias(h_bias,"bias/BConv2d_0",IP_FM_1);
 
+	for (i = 0; i < IP_FM_1; i++) {
+		printf("%d\t", h_bias[i]);
+	}
+
 	//Read pixel values from input image
-	decode_image(image,"testData/banana.ppm"); 
+	decode_image(image,"testData/tiger.ppm"); 
 
 	//separate R,G and B pixels
 	seperateChannels(image, image_r, image_g, image_b);
@@ -399,6 +394,7 @@ void convStandard (unsigned char* opfm) {
 
 	//Get filter values
     getWeights(filter,"weights/Conv2d_0",(IP_FM_1*FDIM*FDIM*FDIM));
+
 
 	arrangeWeights(filter, filter_proper, IP_FM_1*FDIM*FDIM*FDIM);
 
