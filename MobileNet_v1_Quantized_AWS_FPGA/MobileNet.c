@@ -26,6 +26,7 @@
 #include "layerdef.h"
 #include <time.h>
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
+#define NPY_COMMON_HEADER_OFFSET		10 //offset to the Size of Header in npy file (npy - numpy array file)
 
 unsigned char image[HEIGHT_0 * WIDTH_0 * FDIM]; //image with 3 input channels
 unsigned char* filter;
