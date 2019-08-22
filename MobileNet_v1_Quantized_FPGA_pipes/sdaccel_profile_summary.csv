@@ -1,0 +1,95 @@
+SDAccel Profile Summary
+Generated on: 2019-08-22 17:03:21
+Msec since Epoch: 1566493401373
+Profiled application: helloworld
+Target platform: Xilinx
+Tool version: 2018.3
+Target devices: xilinx_aws-vu9p-f1-04261818_dynamic_5_0-0
+Flow mode: CPU Emulation
+
+OpenCL API Calls
+API Name,Number Of Calls,Total Time (ms),Minimum Time (ms),Average Time (ms),Maximum Time (ms),
+clWaitForEvents,1,3977.41,3977.41,3977.41,3977.41,
+clCreateProgramWithBinary,1,25.5765,25.5765,25.5765,25.5765,
+clEnqueueReadBuffer,1,2.00711,2.00711,2.00711,2.00711,
+clEnqueueWriteBuffer,8,1.43661,0.081494,0.179576,0.393669,
+clCreateBuffer,10,0.474773,0.004246,0.0474773,0.331539,
+clSetKernelArg,29,0.458535,0.003678,0.0158116,0.288934,
+clEnqueueNDRangeKernel,2,0.248246,0.082126,0.124123,0.16612,
+clCreateKernel,4,0.050693,0.007972,0.0126732,0.022695,
+clGetExtensionFunctionAddress,2,0.049574,0.005005,0.024787,0.044569,
+clGetPlatformInfo,12,0.045994,0.003361,0.00383283,0.006636,
+clReleaseMemObject,6,0.033906,0.003472,0.005651,0.010655,
+clGetEventProfilingInfo,4,0.029061,0.004333,0.00726525,0.011317,
+clReleaseKernel,3,0.012943,0.0036,0.00431433,0.005204,
+clCreateContext,1,0.009907,0.009907,0.009907,0.009907,
+clGetDeviceIDs,1,0.008276,0.008276,0.008276,0.008276,
+clBuildProgram,1,0.008176,0.008176,0.008176,0.008176,
+clCreateCommandQueue,1,0.007747,0.007747,0.007747,0.007747,
+clFinish,1,0.006917,0.006917,0.006917,0.006917,
+clReleaseProgram,1,0.004746,0.004746,0.004746,0.004746,
+clReleaseCommandQueue,1,0.004241,0.004241,0.004241,0.004241,
+clReleaseContext,1,0.003903,0.003903,0.003903,0.003903,
+
+
+Kernel Execution
+Kernel,Number Of Enqueues,Total Time (ms),Minimum Time (ms),Average Time (ms),Maximum Time (ms),
+convolute,1,3919.51,3919.51,3919.51,3919.51,
+depthwise,1,3975.6,3975.6,3975.6,3975.6,
+
+
+Compute Unit Utilization
+Device,Compute Unit,Kernel,Global Work Size,Local Work Size,Number Of Calls,Total Time (ms),Minimum Time (ms),Average Time (ms),Maximum Time (ms),Clock Frequency (MHz),
+xilinx_aws-vu9p-f1-04261818_dynamic_5_0-0,convolute_1,convolute,112:112:1,1:1:1,12544,3683.71,0.001983,0.293663,889.445,300,
+xilinx_aws-vu9p-f1-04261818_dynamic_5_0-0,depthwise_1,depthwise,112:112:1,7:7:1,256,2.85635,0.005654,0.0111576,0.240684,300,
+
+
+Data Transfer: Host and Global Memory
+Context:Number of Devices,Transfer Type,Number Of Transfers,Transfer Rate (MB/s),Average Bandwidth Utilization (%),Average Size (KB),Total Time (ms),Average Time (ms),
+
+
+Data Transfer: Kernels and Global Memory
+Device,Compute Unit/Port Name,Kernel Arguments,Memory Resources,Transfer Type,Number Of Transfers,Transfer Rate (MB/s),Average Bandwidth Utilization (%),Average Size (KB),Average Latency (ns),
+
+
+Top Data Transfer: Kernels and Global Memory
+Device,Compute Unit,Number of Transfers,Average Bytes per Transfer,Transfer Efficiency (%),Total Data Transfer (MB),Total Write (MB),Total Read (MB),Total Transfer Rate (MB/s),
+
+
+Top Kernel Execution
+Kernel Instance Address,Kernel,Context ID,Command Queue ID,Device,Start Time (ms),Duration (ms),Global Work Size,Local Work Size,
+37157632,depthwise,0,0,xilinx_aws-vu9p-f1-04261818_dynamic_5_0-0,73.5421,3975.6,112:112:1,7:7:1,
+37155280,convolute,0,0,xilinx_aws-vu9p-f1-04261818_dynamic_5_0-0,70.6234,3919.51,112:112:1,1:1:1,
+
+
+Top Buffer Writes
+Buffer Address,Context ID,Command Queue ID,Start Time (ms),Duration (ms),Buffer Size (KB),Writing Rate(MB/s),
+569344,0,0,71.7257,N/A,401.824,N/A,
+0,0,0,69.8719,N/A,151.52,N/A,
+
+
+Top Buffer Reads
+Buffer Address,Context ID,Command Queue ID,Start Time (ms),Duration (ms),Buffer Size (KB),Reading Rate(MB/s),
+991232,0,0,4049.3,N/A,401.408,N/A,
+
+
+PRC Parameters
+Parameter,Element,Value,
+DEVICE_EXEC_TIME,xilinx_aws-vu9p-f1-04261818_dynamic_5_0-0,3978.517489,
+CU_CALLS,xilinx_aws-vu9p-f1-04261818_dynamic_5_0-0|avgPool_1,0,
+CU_CALLS,xilinx_aws-vu9p-f1-04261818_dynamic_5_0-0|convolute_1,12544,
+CU_CALLS,xilinx_aws-vu9p-f1-04261818_dynamic_5_0-0|depthwise_1,256,
+CU_CALLS,xilinx_aws-vu9p-f1-04261818_dynamic_5_0-0|pointwise_1,0,
+MEMORY_BIT_WIDTH,xilinx_aws-vu9p-f1-04261818_dynamic_5_0-0,512,
+MIGRATE_MEM,host,0,
+DDR_BANKS,,4,
+PORT_BIT_WIDTH,avgPool_1/m_axi_gmem,32,
+PORT_BIT_WIDTH,pointwise_1/m_axi_gmem,32,
+PORT_BIT_WIDTH,convolute_1/m_axi_gmem,32,
+PORT_BIT_WIDTH,depthwise_1/m_axi_gmem,32,
+KERNEL_COUNT,avgPool,1,
+KERNEL_COUNT,convolute,1,
+KERNEL_COUNT,depthwise,1,
+KERNEL_COUNT,pointwise,1,
+OBJECTS_RELEASED,all,0,
+
