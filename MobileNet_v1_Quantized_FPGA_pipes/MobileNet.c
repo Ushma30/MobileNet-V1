@@ -613,8 +613,8 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	}
 
 	size_t localWorkSize[2], globalWorkSize[2];
-	localWorkSize[0] =  7;
-	localWorkSize[1] =  7;
+	localWorkSize[0] =  1;
+	localWorkSize[1] =  1;
 	globalWorkSize[0] = opw;
 	globalWorkSize[1] = oph;
 	err = clEnqueueNDRangeKernel(commands, depthwise_conv, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myevent);   
@@ -625,12 +625,12 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 		exit(1);
 	}
    
-	clWaitForEvents(1,&myevent);	 
-	clFinish(commands);   
-	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-	clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_END,sizeof(cl_ulong), &end, NULL);
-	kernelExecTimeNs += end - start;	
-	err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, op_fsize*oph*opw*sizeof(unsigned char), opfm, 0, NULL, NULL);
+	//clWaitForEvents(1,&myevent);	 
+	//clFinish(commands);   
+	//clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+	//clGetEventProfilingInfo(myevent,CL_PROFILING_COMMAND_END,sizeof(cl_ulong), &end, NULL);
+	//kernelExecTimeNs += end - start;	
+	//err = clEnqueueReadBuffer(commands, d_output, CL_TRUE, 0, op_fsize*oph*opw*sizeof(unsigned char), opfm, 0, NULL, NULL);
 
 	if (err != CL_SUCCESS)
 	{
@@ -648,16 +648,16 @@ void convDepthwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	//write_ptr = fopen("depth1.npy","wb");  // w for write, b for binary
 	//fwrite(output_proper,oph * opw * op_fsize,1,write_ptr);
      
-    for(k = 0; k < op_fsize; k++){
-     	printf("Layer No: %d\n", k);
-     	for (j = 0; j < 10; j++){
-     		for(i = 0; i < 10; i++){
-     			printf("%d\t", opfm[(j*opw+i) + (k*oph*opw)]);
-     		}
-     		printf("\n");
-     	}
-     printf("\n");
-    }
+/*    for(k = 0; k < op_fsize; k++){*/
+/*     	printf("Layer No: %d\n", k);*/
+/*     	for (j = 0; j < 10; j++){*/
+/*     		for(i = 0; i < 10; i++){*/
+/*     			printf("%d\t", opfm[(j*opw+i) + (k*oph*opw)]);*/
+/*     		}*/
+/*     		printf("\n");*/
+/*     	}*/
+/*     printf("\n");*/
+/*    }*/
 
 	clReleaseMemObject(d_input);
 
@@ -739,8 +739,8 @@ void convPointwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 	}
 
 	size_t localWorkSize[2], globalWorkSize[2];
-	localWorkSize[0] = 7;
-	localWorkSize[1] = 7;
+	localWorkSize[0] = 1;
+	localWorkSize[1] = 1;
 	globalWorkSize[0] = opw;
 	globalWorkSize[1] = oph;
 	err = clEnqueueNDRangeKernel(commands, pointwise_conv, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myevent);   
@@ -776,16 +776,16 @@ void convPointwise(unsigned char* ipfm, unsigned char* opfm, char* fileName_bias
 
 	// printf("Data for Layer %d\n", layer_count);
 
-	// for (k = 0; k < op_fsize; k++){
-	// 	printf("Layer No.: %d\n",k);
-	// 	for (j = 100; j < 112; j++){
-	// 		for(i = 100; i < 112; i++){
-	// 			printf("%d\t", opfm[(j*opw+i) + (k*oph*opw)]);
-	// 		}
-	// 		printf("\n");
-	// 	}
-    // 	printf("\n");
-	// }
+	 for (k = 0; k < op_fsize; k++){
+	 	printf("Layer No.: %d\n",k);
+	 	for (j = 0; j < 10; j++){
+	 		for(i = 0; i < 10; i++){
+	 			printf("%d\t", opfm[(j*opw+i) + (k*oph*opw)]);
+	 		}
+	 		printf("\n");
+	 	}
+     	printf("\n");
+	 }
 
 	clReleaseMemObject(d_input);
 }
@@ -965,14 +965,14 @@ int main(int argc, char** argv) {
 	convDepthwise(op_fm_0, op_fm_1, "bias/BConv2d_1_depthwise", "weights/Conv2d_1_depthwise", HEIGHT_1, WIDTH_1, HEIGHT_2, WIDTH_2, IP_FM_1, IP_FM_2, 1, M_1, SBIAS_1, Z2_1);
 	
 	//Layer 2 Point-Wise Convolution
-/*
+
 	layer_count++;
 	unsigned char* op_fm_2 = (unsigned char*) malloc(IP_FM_3 * HEIGHT_3 * WIDTH_3 * sizeof(unsigned char));	//output feature map for layer 2
 	convPointwise(op_fm_1, op_fm_2, "bias/BConv2d_1_pointwise", "weights/Conv2d_1_pointwise", HEIGHT_2, WIDTH_2, HEIGHT_3, WIDTH_3, IP_FM_2, IP_FM_3, M_2, SBIAS_2, Z2_2);
 
 
 	//Layer 3 Depth-Wise Convolution
-
+/*
 	layer_count++;
 	unsigned char* op_fm_3 = (unsigned char*) malloc(IP_FM_4 * HEIGHT_4 * WIDTH_4 * sizeof(unsigned char)); //output feature map for layer 3
 	convDepthwise(op_fm_2, op_fm_3, "bias/BConv2d_2_depthwise", "weights/Conv2d_2_depthwise", HEIGHT_3, WIDTH_3, HEIGHT_4, WIDTH_4, IP_FM_3, IP_FM_4, 2, M_3, SBIAS_3, Z2_3);

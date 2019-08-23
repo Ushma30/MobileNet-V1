@@ -1,4 +1,5 @@
-pipe unsigned char pipePath0 __attribute__((xcl_reqd_pipe_depth(128)));
+pipe unsigned char pipePath0 __attribute__((xcl_reqd_pipe_depth(32768)));
+pipe unsigned char pipePath1 __attribute__((xcl_reqd_pipe_depth(32768)));
 
 __kernel void convolute(__global unsigned char* output, 
 						__global unsigned char* inp_image_r, 
@@ -103,9 +104,9 @@ __kernel void convolute(__global unsigned char* output,
 		} else if (sum >= 255) 
 			sum = 255;
 
-		if ((tx == 17 && ty == 0) ) {
-		 	printf("A Sum: %d\n",(sum));
-		}
+//		if ((tx == 17 && ty == 0) ) {
+//		 	printf("A Sum: %d\n",(sum));
+//		}
 		
 		output[(ty * get_global_size(0) + tx) + output_shift] = (unsigned char)sum;
         pipeIp = (unsigned char)sum;
@@ -124,7 +125,7 @@ __kernel void depthwise(__global unsigned char* output,
 
 	int tx = get_global_id(0);
 	int ty = get_global_id(1);
-
+    unsigned char pipeIp;
 	int half_filtersize = (filtersize)/2;
 
 	int sum = 0;
@@ -135,11 +136,11 @@ __kernel void depthwise(__global unsigned char* output,
     
     if (tx == 0 && ty == 0)
     {
-        for ( i = 0; i < (112*112); i++ )
+        for ( i = 0; i < (rows*cols); i++ )
         {
-            for ( j = 0; j < 32; j++ )
+            for ( j = 0; j < op_size; j++ )
             {
-                read_pipe_block(pipePath0, &pipeinput[(j*112*112)+i]);		    
+                read_pipe_block(pipePath0, &pipeinput[(j*rows*cols)+i]);		    
             }
         }
 //        for ( i = (112*112); i < (112*112*2); i++ )
@@ -147,7 +148,7 @@ __kernel void depthwise(__global unsigned char* output,
 //            printf("%d\t",pipeinput[i]);	
 //        }
     }    
-    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+    //barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
     //pipeinput[(112*112)+1] = 128;
     //printf("Read Pipe Done \n");
     //printf("value %d\n",pipeinput[112*112]);
@@ -221,7 +222,9 @@ __kernel void depthwise(__global unsigned char* output,
 		} else if (sum >= 255) 
 			sum = 255;
 
-		output[(ty * get_global_size(0) + tx) + output_shift] = (unsigned char)sum;
+		//output[(ty * get_global_size(0) + tx) + output_shift] = (unsigned char)sum;
+        pipeIp = (unsigned char)sum;
+        write_pipe_block(pipePath1, &pipeIp);
         sum = 0;
 		filter_count++;	
 	}
@@ -240,11 +243,28 @@ __kernel void pointwise(__global unsigned char* output,
 	int sum = 0;
 	int findex=0, filter_count=0;
 	int i,j,l;
+    __local unsigned char pipeinput[401408];
+    
+    if (tx == 0 && ty == 0)
+    {
+        for ( i = 0; i < (rows*cols); i++ )
+        {
+            for ( j = 0; j < filtersize; j++ )
+            {
+                read_pipe_block(pipePath1, &pipeinput[(j*rows*cols)+i]);	            
+                //printf("%d\t",pipeinput[(j*rows*cols)+i]);
+            }
+        }
+//        for ( i = (112*112); i < (112*112*2); i++ )
+//        {
+//            printf("%d\t",pipeinput[i]);	
+//        }
+    } 
 	while (filter_count < op_size) {
 		int output_shift = rows * cols * filter_count;
 		
 		for (i = 0; i < filtersize; i++,findex++) {
-			sum += inp_image[(ty * get_global_size(0) + tx) + (rows * cols * i)] * (filter_k[findex] - Z2); 
+			sum += pipeinput[(ty * get_global_size(0) + tx) + (rows * cols * i)] * (filter_k[findex] - Z2); 
 		}
 		
 		//sum = (int)((M * sum) + (bias[filter_count] * Sbias));
