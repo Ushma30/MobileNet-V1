@@ -1,6 +1,7 @@
 pipe unsigned char pipePath0 __attribute__((xcl_reqd_pipe_depth(32768)));
 pipe unsigned char pipePath1 __attribute__((xcl_reqd_pipe_depth(32768)));
 
+//kernel __attribute__ ((reqd_work_group_size(16, 16, 1)))
 __kernel void convolute(__global unsigned char* output, 
 						__global unsigned char* inp_image_r, 
 						__global unsigned char* inp_image_g, 
@@ -108,14 +109,14 @@ __kernel void convolute(__global unsigned char* output,
 //		 	printf("A Sum: %d\n",(sum));
 //		}
 		
-		output[(ty * get_global_size(0) + tx) + output_shift] = (unsigned char)sum;
+		//output[(ty * get_global_size(0) + tx) + output_shift] = (unsigned char)sum;
         pipeIp = (unsigned char)sum;
         write_pipe_block(pipePath0, &pipeIp);
 		sum = 0;
 		filter_count++;
 	}
 }
-
+//kernel __attribute__ ((reqd_work_group_size(7, 7, 1)))
 __kernel void depthwise(__global unsigned char* output, 
 						__global unsigned char* inp_image, 
 						__global unsigned char* filter_k, 
@@ -131,9 +132,20 @@ __kernel void depthwise(__global unsigned char* output,
 	int sum = 0;
 	int xindex=0, yindex=0, findex=0, filter_count=0, start, end;
 	int i,j,l;
-    
-    __local unsigned char pipeinput[401408];
-    
+    int l_i, l_j;
+    int localWorkSize = 16;
+    __local unsigned char pipeinput[802816];
+//    if (get_global_size(0) == 56 )
+//    {
+//        if (tx == 0 && ty == 0)
+//        {
+//        
+//            printf("Iam in 2depthwise layer\n");
+//            printf("op_size %d\n",op_size);
+//            printf("rows %d\n",rows);
+//            printf("cols %d\n",cols);
+//        }
+//    }
     if (tx == 0 && ty == 0)
     {
         for ( i = 0; i < (rows*cols); i++ )
@@ -143,11 +155,48 @@ __kernel void depthwise(__global unsigned char* output,
                 read_pipe_block(pipePath0, &pipeinput[(j*rows*cols)+i]);		    
             }
         }
+//        if (get_global_size(0) == 56 )
+//        {        
+//            for ( i = 0; i < (112*112); i++ )
+//            {
+//                printf("%d\t",pipeinput[i]);	
+//            }
+//        }
 //        for ( i = (112*112); i < (112*112*2); i++ )
 //        {
 //            printf("%d\t",pipeinput[i]);	
 //        }
     }    
+    
+//    int pi;
+//    if (tx == 0 && ty == 0)
+//    {
+//        for ( i = 0; i < 7; i++ )
+//        {
+//            #pragma HLS unroll factor=2
+//            for ( pi = 0; pi < 7; pi++ )
+//            {
+//                #pragma HLS unroll factor=2
+//                for (l_i = 0; l_i < localWorkSize; l_i++)
+//                {
+//		            #pragma HLS unroll factor=2
+//                    for (l_j = 0; l_j < localWorkSize; l_j++)
+//                    {
+// 		                #pragma HLS unroll factor=2 
+//                        for ( j = 0; j < op_size; j++ )
+//                        {
+//			                #pragma HLS unroll factor=2
+//                            read_pipe_block(pipePath0, &pipeinput[(j*rows*cols)+( l_i*cols + l_j )+(pi*localWorkSize)+(i*localWorkSize*cols)]);		    
+//                        }
+//                    }
+//                }
+//            }
+//        }   
+//        /*for ( i = (112*112); i < (112*112*2); i++ )
+//        {
+//            printf("%d\t",pipeinput[i]);	
+//        }*/
+//    }
     //barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
     //pipeinput[(112*112)+1] = 128;
     //printf("Read Pipe Done \n");
@@ -221,15 +270,22 @@ __kernel void depthwise(__global unsigned char* output,
 			sum = 0;		
 		} else if (sum >= 255) 
 			sum = 255;
-
-		//output[(ty * get_global_size(0) + tx) + output_shift] = (unsigned char)sum;
-        pipeIp = (unsigned char)sum;
-        write_pipe_block(pipePath1, &pipeIp);
+    
+//        if (get_global_size(0) == 56 )
+//        {
+//		    output[(ty * get_global_size(0) + tx) + output_shift] = (unsigned char)sum;
+//        }
+//        else
+//        {
+            pipeIp = (unsigned char)sum;
+            write_pipe_block(pipePath1, &pipeIp);
+//        }        
         sum = 0;
 		filter_count++;	
 	}
 }
 
+//kernel __attribute__ ((reqd_work_group_size(7, 7, 1)))
 __kernel void pointwise(__global unsigned char* output, 
 						__global unsigned char* inp_image, 
 						__global unsigned char* filter_k, 
@@ -239,12 +295,24 @@ __kernel void pointwise(__global unsigned char* output,
 
 	int tx = get_global_id(0);
 	int ty = get_global_id(1);
-
+    unsigned char pipeIp;
 	int sum = 0;
 	int findex=0, filter_count=0;
 	int i,j,l;
-    __local unsigned char pipeinput[401408];
-    
+    int localWorkSize = 7;
+    int l_i, l_j;
+    __local unsigned char pipeinput[802816];
+//    if ( filtersize == 1024 && op_size == 1024 )
+//    {
+//        if (tx == 0 && ty == 0)
+//        {
+//        
+//            printf("Iam in 4pointwise layer\n");
+//            printf("filtersize %d\n",filtersize);
+//            printf("rows %d\n",rows);
+//            printf("cols %d\n",cols);
+//        }
+//    }
     if (tx == 0 && ty == 0)
     {
         for ( i = 0; i < (rows*cols); i++ )
@@ -260,6 +328,27 @@ __kernel void pointwise(__global unsigned char* output,
 //            printf("%d\t",pipeinput[i]);	
 //        }
     } 
+    
+//    int pi;
+//    if (tx == 0 && ty == 0)
+//    {
+//        for ( i = 0; i < 16; i++ )across tile travel
+//        {
+//            for ( pi = 0; pi < 16; pi++ )across tile travel
+//            {
+//                for (l_i = 0; l_i < localWorkSize; l_i++)Inside tile travel
+//                {
+//                    for (l_j = 0; l_j < localWorkSize; l_j++)Inside tile travel
+//                    { 
+//                        for ( j = 0; j < filtersize; j++ )
+//                        {
+//                            read_pipe_block(pipePath1, &pipeinput[(j*rows*cols)+( l_i*cols + l_j )+(pi*localWorkSize)+(i*localWorkSize*cols)]);		    
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//    } 
 	while (filter_count < op_size) {
 		int output_shift = rows * cols * filter_count;
 		
@@ -283,9 +372,16 @@ __kernel void pointwise(__global unsigned char* output,
 			sum = 0;		
 		} else if (sum >= 255) 
 			sum = 255;
-		
-		output[(ty * get_global_size(0) + tx) + output_shift] = (unsigned char)sum;
-		sum = 0;
+//		if (filtersize == 1024 && op_size == 1024)
+//        {    
+//		    output[(ty * get_global_size(0) + tx) + output_shift] = (unsigned char)sum;
+//        }
+//        else
+//        {        
+            pipeIp = (unsigned char)sum;
+            write_pipe_block(pipePath0, &pipeIp);
+//        }		
+        sum = 0;
 		filter_count++;
 	}
 }
@@ -295,10 +391,26 @@ __kernel void avgPool(__global unsigned char* output,
 
         int tx = get_global_id(0);
         int sum = 0;
-        int i;
+        int i,j;
 	    int input_shift = rows * cols;
+        __local unsigned char pipeinput[60176];
+        if (tx == 0)
+        {
+            for ( i = 0; i < 49; i++ )
+            {
+                for ( j = 0; j < 1024; j++ )
+                {
+                    read_pipe_block(pipePath0, &pipeinput[(j*rows*cols)+i]);	            
+                    //printf("%d\t",pipeinput[(j*rows*cols)+i]);
+                }
+            }
+    //        for ( i = (112*112); i < (112*112*2); i++ )
+    //        {
+    //            printf("%d\t",pipeinput[i]);	
+    //        }
+        }
 		for (i = 0; i < rows * cols; i++) {
-			sum += inp_image[i + ( tx * input_shift)];
+			sum += pipeinput[i + ( tx * input_shift)];
 		}
 		/*{
 			//printf("M: %f\tbias: %f\t\n",M,Sbias);
